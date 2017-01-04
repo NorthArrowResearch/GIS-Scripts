@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 from ogrfunc import *
 from vor import NARVoronoi
+from descartes import PolygonPatch
+import matplotlib.pyplot as plt
+from matplotlib.collections import PatchCollection
+import fiona
+from shapely import wkt, geometry
+from shapely.geometry import Polygon, MultiPolygon, MultiLineString, shape, LineString
+import json
 import numpy as np
 
 
@@ -8,22 +15,42 @@ class River:
 
     def __init__(self, sWetExtent, sThalweg):
 
-        self.wetLayer = openlayer(sWetExtent)
-        self.thalweg = openlayer(sThalweg)
+        wet = MultiPolygon([shape(pol['geometry']) for pol in fiona.open(sWetExtent, 'r')])
+        thalweg = MultiLineString([shape(line['geometry']) for line in fiona.open(sThalweg, 'r')])
 
-        # Get our multipolygon shape
-        feat = self.wetLayer.GetFeature(0)
-        geom = feat.GetGeometryRef()
+        # Do a little show and tell with plotting and whatnot
+        # --------------------------------------------------------
+        fig = plt.figure(1, figsize=(10, 10))
+        ax = fig.gca()
 
-        # Add all the points (including islands) to the list
-        self.riverPoints = []
-        for idx in range(0, geom.GetGeometryCount()):
-            ring = geom.GetGeometryRef(idx)
-            for pt in ring.GetPoints():
-                self.riverPoints.append(pt)
+        plotShape(ax, wet.envelope, 'b', 'b')
+        plotShape(ax, wet, 'r', 'r')
+        plotShape(ax, thalweg, 'g', 'g')
+        plt.autoscale(enable=True)
+        plt.show()
 
-        self.extent = getEnvelope(self.wetLayer, 10)
+def getExtrapoledLine(p1,p2):
+    'Creates a line extrapoled in p1->p2 direction'
+    EXTRAPOL_RATIO = 10
+    a = p1
+    b = (p1[0]+EXTRAPOL_RATIO*(p2[0]-p1[0]), p1[1]+EXTRAPOL_RATIO*(p2[1]-p1[1]) )
+    return LineString([a,b])
 
+def plotShape(ax, mp, ptcolor, shapecolor):
+    if mp.type == 'Polygon':
+        ax.add_patch(PolygonPatch(mp, fc=shapecolor, ec=ptcolor, lw=0.2, alpha=0.2, zorder=1))
+
+    elif mp.type == 'MultiLineString':
+        patches = []
+        for idx, p in enumerate(mp):
+            x, y = p.xy
+            ax.plot(x, y, color=ptcolor, alpha=0.7, linewidth=3, solid_capstyle='round', zorder=2)
+
+    elif mp.type == 'MultiPolygon':
+        patches = []
+        for idx, p in enumerate(mp):
+            patches.append(PolygonPatch(p, fc=shapecolor, ec=ptcolor, lw=0.2, alpha=0.2, zorder=1))
+        ax.add_collection(PatchCollection(patches, match_original=True))
 
 def main():
     '''
@@ -33,53 +60,11 @@ def main():
 
     # We're just iterating over a folder. Change this to something else if you want
     theRiver = River("sample/WettedExtent.shp", "sample/Thalweg.shp")
-    vor = NARVoronoi(theRiver.riverPoints)
-    vor.plot()
+    # vor = NARVoronoi(theRiver.wet.points)
+    # vor.plot()
 
     print "done"
 
 if __name__ == "__main__":
     main()
 
-
-    #     AREA
-# wkt = "POLYGON ((1162440.5712740074 672081.4332727483, 1162440.5712740074 647105.5431482664, 1195279.2416228633 647105.5431482664, 1195279.2416228633 672081.4332727483, 1162440.5712740074 672081.4332727483))"
-# poly = ogr.CreateGeometryFromWkt(wkt)
-# print "Area = %d" % poly.GetArea()
-#
-#
-# wkts = [
-#     "POINT (1198054.34 648493.09)",
-#     "LINESTRING (1181866.263593049 615654.4222507705, 1205917.1207499576 623979.7189589312, 1227192.8790041457 643405.4112779726, 1224880.2965852122 665143.6860159477)",
-#     "POLYGON ((1162440.5712740074 672081.4332727483, 1162440.5712740074 647105.5431482664, 1195279.2416228633 647105.5431482664, 1195279.2416228633 672081.4332727483, 1162440.5712740074 672081.4332727483))"
-# ]
-#
-# for wkt in wkts:
-#     geom = ogr.CreateGeometryFromWkt(wkt)
-#     print geom.GetGeometryName()
-#
-#
-# wkt1 = "POLYGON ((1208064.271243039 624154.6783778917, 1208064.271243039 601260.9785661874, 1231345.9998651114 601260.9785661874, 1231345.9998651114 624154.6783778917, 1208064.271243039 624154.6783778917))"
-# wkt2 = "POLYGON ((1199915.6662253144 633079.3410163528, 1199915.6662253144 614453.958118695, 1219317.1067437078 614453.958118695, 1219317.1067437078 633079.3410163528, 1199915.6662253144 633079.3410163528)))"
-#
-# poly1 = ogr.CreateGeometryFromWkt(wkt1)
-# poly2 = ogr.CreateGeometryFromWkt(wkt2)
-#
-# intersection = poly1.Intersection(poly2)
-#
-# print intersection.ExportToWkt()
-
-
-
-
-# wkt1 = "POLYGON ((1208064.271243039 624154.6783778917, 1208064.271243039 601260.9785661874, 1231345.9998651114 601260.9785661874, 1231345.9998651114 624154.6783778917, 1208064.271243039 624154.6783778917))"
-# wkt2 = "POLYGON ((1199915.6662253144 633079.3410163528, 1199915.6662253144 614453.958118695, 1219317.1067437078 614453.958118695, 1219317.1067437078 633079.3410163528, 1199915.6662253144 633079.3410163528)))"
-#
-# poly1 = ogr.CreateGeometryFromWkt(wkt1)
-# poly2 = ogr.CreateGeometryFromWkt(wkt2)
-#
-# union = poly1.Union(poly2)
-#
-# print poly1
-# print poly2
-# print union.ExportToWkt()
