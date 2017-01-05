@@ -57,7 +57,7 @@ class River:
         # Here's where the Voronoi polygons come into play
         myVorL = NARVoronoi(MultiPoint(points))
         # myVorL.plot()
-        myVorL.collectCenterLines(leftpts, rightpts)
+        centerline = myVorL.collectCenterLines(leftpts, rightpts)
 
 
 
@@ -78,11 +78,13 @@ class River:
 
         plotShape(ax, wet, '#AACCAA', 0.2, 5)
 
-        # plotShape(ax, MultiPoint(points), 'r', 1, 10)
+
         plotShape(ax, MultiPoint(leftpts), 'r', 1, 10)
         plotShape(ax, MultiPoint(rightpts), 'b', 1, 10)
-        plotShape(ax, newThalweg, 'r', 1, 10)
+        plotShape(ax, newThalweg, 'r', 0.5, 10)
         plotShape(ax, thalweg, 'g', 1, 14)
+
+        plotShape(ax, centerline, '#FFAABB', 1, 20)
 
         plt.autoscale(enable=True)
         plt.show()
