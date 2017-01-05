@@ -9,18 +9,20 @@ from shapely.geometry import *
 
 class River:
 
-    def __init__(self, sWetExtent, sThalweg, sCenterline):
+    def __init__(self, sRiverShape, sThalweg, sCenterline):
+        # Open the file and extract the shapes we need
+        # TODO: This is begging for a little abstraction
         source_driver = None
         source_crs = None
         source_schema = None
         shp = None
-        with fiona.open(sWetExtent, 'r') as source:
+        with fiona.open(sRiverShape, 'r') as source:
             source_driver = source.driver
             source_crs = source.crs
             source_schema = source.schema
             shp = [shape(pol['geometry']) for pol in source]
 
-        wet = MultiPolygon(shp)
+        rivershape = MultiPolygon(shp)
 
         # We're assuming here that the thalweg only has one line segment
         thalweg = MultiLineString([shape(line['geometry']) for line in fiona.open(sThalweg, 'r')])[0]
@@ -29,11 +31,11 @@ class River:
         thalwegStart = LineString([thalweg.coords[1], thalweg.coords[0]])
         thalwegEnd = LineString([thalweg.coords[-2], thalweg.coords[-1]])
 
-        wetBounds = getBufferedBounds(wet, 10)
+        rivershapeBounds = getBufferedBounds(rivershape, 10)
 
         # Now see where the lines intersect the rectangle
-        thalwegStartExt = rectIntersect(thalwegStart, wetBounds)
-        thalwegEndExt = rectIntersect(thalwegEnd, wetBounds)
+        thalwegStartExt = rectIntersect(thalwegStart, rivershapeBounds)
+        thalwegEndExt = rectIntersect(thalwegEnd, rivershapeBounds)
 
         # Now make a new thalweg by adding the extension points to the start
         # and end points of the original
@@ -44,15 +46,14 @@ class River:
         newThalweg = LineString(thalweglist)
 
         # Now split clockwise to get left and right envelopes
-        bankshapes = splitClockwise(wetBounds, newThalweg)
+        bankshapes = splitClockwise(rivershapeBounds, newThalweg)
 
         # Add all the points (including islands) to one of three lists
         points = []
         leftpts = []
         rightpts = []
 
-        # Go through and collect all the points
-        for pol in wet:
+        for pol in rivershape:
             # Exterior is the shell
             pts = list(pol.exterior.coords)
             # Interiors are the islands
@@ -67,7 +68,7 @@ class River:
 
         # Here's where the Voronoi polygons come into play
         myVorL = NARVoronoi(MultiPoint(points))
-        # myVorL.plot()
+        myVorL.plot()
         centerline = myVorL.collectCenterLines(leftpts, rightpts)
 
         schema = {'geometry': 'MultiLineString', 'properties': {'name': 'str'}}
@@ -81,9 +82,6 @@ class River:
             })
 
 
-
-
-
         # --------------------------------------------------------
         # Do a little show and tell with plotting and whatnot
         # --------------------------------------------------------
@@ -92,10 +90,10 @@ class River:
 
         plotShape(ax, bankshapes[0], '#DDCCCC', 1, 0)
         plotShape(ax, bankshapes[1], '#AAAABB', 1, 0)
-        # plotShape(ax, wetBounds, 'b', 1, 0)
-        # plotShape(ax, wet.envelope, 'b', 0.2, 2)
+        # plotShape(ax, rivershapeBounds, 'b', 1, 0)
+        # plotShape(ax, rivershape.envelope, 'b', 0.2, 2)
 
-        plotShape(ax, wet, '#AACCAA', 0.2, 5)
+        plotShape(ax, rivershape, '#AACCAA', 0.2, 5)
 
 
         plotShape(ax, MultiPoint(leftpts), 'r', 1, 10)
@@ -103,7 +101,7 @@ class River:
         plotShape(ax, newThalweg, 'r', 0.5, 10)
         plotShape(ax, thalweg, 'g', 1, 14)
 
-        plotShape(ax, centerline, '#FFAABB', 1, 20)
+        plotShape(ax, centerline, '#ffa500', 1, 20)
 
         plt.autoscale(enable=True)
         plt.show()
