@@ -12,10 +12,10 @@ We need a Python routine that is capable of producing Thiessen polygons so that 
 
 Here's our existing centerline workflow **for single threaded channels** for some context. The screenshots are from the 2015 John Day visit 3506. Multi threaded channels are more complicated and can be worked in later.
 
-1. Start with the polygon layer that outlines the river. (Note that the CHaMP topo toolbar performs this centerline process twice. First with the wetted and then with the bankfull polygon). **(DONE)**
-2. Convert the main channel polygon to points. i.e. create a point layer with a point at every vertex of the polygon. **(DONE)**
-3. Use the one and only Thalweg polyline to assign points to either the left or right of the Thalweg. **(CURRENT)**
-4. Generate Thiessen polygons using the points. **IMPORTANT** the ESRI tool generates the output polygons with an attribute field that contains the feature ID of the point at the center of each polygon.
+1. Start with the polygon layer that outlines the river. (Note that the CHaMP topo toolbar performs this centerline process twice. First with the wetted and then with the bankfull polygon).
+2. Convert the main channel polygon to points. i.e. create a point layer with a point at every vertex of the polygon. 
+3. Use the one and only Thalweg polyline to assign points to either the left or right of the Thalweg. 
+4. Generate Thiessen polygons using the points. **IMPORTANT** the ESRI tool generates the output polygons with an attribute field that contains the feature ID of the point at the center of each polygon. 
 5. Explode the thieseen polygons to lines. Again, each line should possess the feature IDs of the polygon on its left and the polygon on its right.
 6. Iterate over each line feature and find the polygon on the left and right of the line. Using the feature IDs mentioned in the previous two bullets, if the line divides a left bank polygon with a right bank polygon then it is a centerline feature, keep it! But if the line feature divides two left bank or two right bank features then discard it.
 7. The retained features should be only the centerline lines that are equidistant from both banks.

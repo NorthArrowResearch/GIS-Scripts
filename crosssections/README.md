@@ -34,4 +34,5 @@ ShapeFiles and DEM TIF for 2014 Asotin visit #2425 are attached to the [Thiessen
 
 * The "initial length" concept has always been problematic. Coming up with an appropriate length when CHaMP channels are all different widths is really hard. If we choose a value that's too small, many cross sections never completely span the banks polygon. A value that's too big causes the ends to re-enter the channel near meanders which creates a lot of code logic to cleanup.
 
-![Complex_Cross_Section_Layout_Results_with_Q_and_NonQ_Islands](Complex_Cross_Section_Layout_Results_with_Q_and_NonQ_Islands.png)![RBT_Cross_Section_Layout](RBT_Cross_Section_Layout.png)
+![Complex_Cross_Section_Layout_Results_with_Q_and_NonQ_Islands](img/Complex_Cross_Section_Layout_Results_with_Q_and_NonQ_Islands.png)
+![RBT_Cross_Section_Layout](img/RBT_Cross_Section_Layout.png)
