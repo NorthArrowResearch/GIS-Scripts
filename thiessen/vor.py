@@ -12,7 +12,7 @@ class NARVoronoi:
     """
 
     def __init__(self, points):
-
+        #  The centroid is what we're going to use to shift all the coords around
         self.centroid = points.centroid.coords[0]
 
         # Give us a numpy array that is easy to work with

@@ -25,22 +25,26 @@ class River:
         thalwegStartExt = rectIntersect(thalwegStart, wetBounds)
         thalwegEndExt = rectIntersect(thalwegEnd, wetBounds)
 
+        # Now make a new thalweg by adding the extension points to the start
+        # and end points of the original
         thalweglist = list(thalweg.coords)
         thalweglist.insert(0, thalwegStartExt.coords[1])
         thalweglist.append(thalwegEndExt.coords[1])
 
         newThalweg = LineString(thalweglist)
 
-        # Now split clockwise to get left and right bank
+        # Now split clockwise to get left and right envelopes
         bankshapes = splitClockwise(wetBounds, newThalweg)
 
-        # Add all the points (including islands) to the list
+        # Add all the points (including islands) to one of three lists
         points = []
         leftpts = []
         rightpts = []
 
         for pol in wet:
+            # Exterior is the shell
             pts = list(pol.exterior.coords)
+            # Interiors are the islands
             for interior in pol.interiors:
                 pts = pts + list(interior.coords)
             for pt in pts:
@@ -55,6 +59,13 @@ class River:
         # myVorL.plot()
         myVorL.collectCenterLines(leftpts, rightpts)
 
+
+
+
+
+
+
+        # --------------------------------------------------------
         # Do a little show and tell with plotting and whatnot
         # --------------------------------------------------------
         fig = plt.figure(1, figsize=(10, 10))
@@ -78,6 +89,15 @@ class River:
 
 
 def plotShape(ax, mp, color, alpha, zord):
+    """
+    Nothing fancy here. Just a plotting function to help us visualize
+    :param ax:
+    :param mp:
+    :param color:
+    :param alpha:
+    :param zord:
+    :return:
+    """
     # We're using Descartes here for polygonpathc
     if mp.type == 'Polygon':
         ax.add_patch(PolygonPatch(mp, fc=color, ec='#000000', lw=0.2, alpha=alpha, zorder=zord))

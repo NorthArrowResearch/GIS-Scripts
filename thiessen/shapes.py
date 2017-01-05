@@ -54,10 +54,11 @@ def getExtrapoledLine(line, length):
     m = (p2[1] - p1[1]) / (p2[0] - p1[0])
     k = length / math.sqrt(1 + math.pow(m, 2))
 
+    # It could be +/- k so we have to try both
+    # TODO: This needs to be tested CAREFULLY. Might only work for this quadrant config
     if  (p2[1] - p1[1]) < 0 and  (p2[0] - p1[0]) < 0:
         k = k * -1
 
-    # It could be +/- k so we have to try both
     newX = p1[0] + k
     newY = p1[1] + k*m
 
@@ -69,11 +70,19 @@ def getExtrapoledLine(line, length):
 def splitClockwise(rect, thalweg):
     """
     Work clockwise around a rectangle and create two shapes that represent left and right bank
+    We do this by adding 4 corners of the rectangle and 2 endpoints of thalweg to a list and then
+    sorting it clockwise using the rectangle centroid.
+
+    Then we traverse the clockwise list and switch between shape1 and shape2 when we hit thalweg start/end points
+
+    finally we inject the entire thalweg line into both shape1 and shape2 between where the start and end points
+    of the thalweg intersect the rectangle and instantiate the whole mess as two polygons inside a multipolygon
+    which we then return
     :param rect:
-    :param thalweg:
+    :param thalweg: a thalweg with start and end points that intersects the rectangle
     :return:
     """
-    # The thalweg has two points we care about:
+    # The thalweg has two points we care about: the first and last points that should intersect the rectangle
     thalwegStart = thalweg.coords[0]
     thalwegEnd = thalweg.coords[-1]
 
@@ -81,32 +90,46 @@ def splitClockwise(rect, thalweg):
     coordsorter.append(thalwegStart)
     coordsorter.append(thalwegEnd)
 
-    # Sort the points clockwise
+    # Sort the points clockwise using the centroid as a center point
     def algo(pt):
         return math.atan2(pt[0] - rect.centroid.coords[0][0], pt[1] - rect.centroid.coords[0][1]);
     coordsorter.sort(key=algo)
 
+    # Create shape1 and shape2 which will fill up with points shape#idx is the place where the thalweg
+    # Should be injected
     shape1 = []
     shape2 = []
     shape1idx = 0
     shape2idx = 0
-
+    # Our boolean switcher
     firstshape = True
-
+    foundfirst = False
+    reverseThalweg = False
     # Calculate shape 1 and shape 2 by traversal
     for idx, pt in enumerate(coordsorter):
+        # We hit the startpoint. note it using the idx vars and floop the firstshape.
         if pt == thalwegStart:
             shape1idx = len(shape1)
             shape2idx = len(shape2)
             firstshape = not firstshape
+            foundfirst = True
+        # At the endpoint we just floop the firstshape.
         elif pt == thalwegEnd:
             firstshape = not firstshape
-
+            if not foundfirst:
+                reverseThalweg = True
+        # If this is a rectangle corner we add it to the appropriate shape
         elif firstshape:
             shape1.append(pt)
         elif not firstshape:
             shape2.append(pt)
 
-    shape1[shape1idx:shape1idx] = reversed(list(thalweg.coords))
-    shape2[shape2idx:shape2idx] = list(thalweg.coords)
-    return MultiPolygon([Polygon(shape1) , Polygon(shape2)])
+    # Now inject the entire thalweg into the appropriate area (reversed if necessary)
+    if reverseThalweg:
+        shape1[shape1idx:shape1idx] = reversed(list(thalweg.coords))
+        shape2[shape2idx:shape2idx] = list(thalweg.coords)
+    else:
+        shape1[shape1idx:shape1idx] = list(thalweg.coords)
+        shape2[shape2idx:shape2idx] = reversed(list(thalweg.coords))
+
+    return MultiPolygon([Polygon(shape1), Polygon(shape2)])
