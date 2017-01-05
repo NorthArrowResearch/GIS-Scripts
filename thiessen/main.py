@@ -9,9 +9,19 @@ from shapely.geometry import *
 
 class River:
 
-    def __init__(self, sWetExtent, sThalweg):
+    def __init__(self, sWetExtent, sThalweg, sCenterline):
+        source_driver = None
+        source_crs = None
+        source_schema = None
+        shp = None
+        with fiona.open(sWetExtent, 'r') as source:
+            source_driver = source.driver
+            source_crs = source.crs
+            source_schema = source.schema
+            shp = [shape(pol['geometry']) for pol in source]
 
-        wet = MultiPolygon([shape(pol['geometry']) for pol in fiona.open(sWetExtent, 'r')])
+        wet = MultiPolygon(shp)
+
         # We're assuming here that the thalweg only has one line segment
         thalweg = MultiLineString([shape(line['geometry']) for line in fiona.open(sThalweg, 'r')])[0]
 
@@ -41,6 +51,7 @@ class River:
         leftpts = []
         rightpts = []
 
+        # Go through and collect all the points
         for pol in wet:
             # Exterior is the shell
             pts = list(pol.exterior.coords)
@@ -59,7 +70,15 @@ class River:
         # myVorL.plot()
         centerline = myVorL.collectCenterLines(leftpts, rightpts)
 
+        schema = {'geometry': 'MultiLineString', 'properties': {'name': 'str'}}
 
+        with fiona.collection(sCenterline, "w", driver=source_driver, crs=source_crs, schema=schema) as output:
+            output.write({
+                'properties': {
+                    'name': 'centerline'
+                },
+                'geometry': mapping(centerline)
+            })
 
 
 
@@ -131,7 +150,7 @@ def main():
     '''
 
     # We're just iterating over a folder. Change this to something else if you want
-    theRiver = River("sample/WettedExtent.shp", "sample/Thalweg.shp")
+    theRiver = River("sample/WettedExtent.shp", "sample/Thalweg.shp", "output/centerline.shp")
     # vor = NARVoronoi(theRiver.wet.points)
     # vor.plot()
 
