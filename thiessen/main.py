@@ -4,7 +4,9 @@ from descartes import PolygonPatch
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
 from shapes import *
-import fiona
+import ogr
+import json
+import os
 from shapely.geometry import *
 
 class River:
@@ -12,20 +14,18 @@ class River:
     def __init__(self, sRiverShape, sThalweg, sCenterline):
         # Open the file and extract the shapes we need
         # TODO: This is begging for a little abstraction
-        source_driver = None
-        source_crs = None
-        source_schema = None
-        shp = None
-        with fiona.open(sRiverShape, 'r') as source:
-            source_driver = source.driver
-            source_crs = source.crs
-            source_schema = source.schema
-            shp = [shape(pol['geometry']) for pol in source]
+        driver = ogr.GetDriverByName("ESRI Shapefile")
+        dataSource = driver.Open(sRiverShape, 0)
+        riverjson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
 
-        rivershape = MultiPolygon(shp)
+        rivershape = MultiPolygon([shape(riverjson)])
 
         # We're assuming here that the thalweg only has one line segment
-        thalweg = MultiLineString([shape(line['geometry']) for line in fiona.open(sThalweg, 'r')])[0]
+        dataSource = driver.Open(sThalweg, 0)
+
+
+        thalwegjson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
+        thalweg = LineString(shape(thalwegjson))
 
         # First and last line segment we need to extend
         thalwegStart = LineString([thalweg.coords[1], thalweg.coords[0]])
@@ -73,14 +73,21 @@ class River:
 
         schema = {'geometry': 'MultiLineString', 'properties': {'name': 'str'}}
 
-        with fiona.collection(sCenterline, "w", driver=source_driver, crs=source_crs, schema=schema) as output:
-            output.write({
-                'properties': {
-                    'name': 'centerline'
-                },
-                'geometry': mapping(centerline)
-            })
+        if os.path.exists(sCenterline):
+            driver.DeleteDataSource(sCenterline)
+        outDataSource = driver.CreateDataSource(sCenterline)
+        outLayer = outDataSource.CreateLayer(sCenterline, geom_type=ogr.wkbMultiLineString)
 
+        ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerline)))
+
+        idField = ogr.FieldDefn('name', ogr.OFTString)
+        outLayer.CreateField(idField)
+
+        featureDefn = outLayer.GetLayerDefn()
+        outFeature = ogr.Feature(featureDefn)
+        outFeature.SetGeometry(ogrmultiline)
+        outFeature.SetField('name', ogr.OFTString)
+        outLayer.CreateFeature(outFeature)
 
         # --------------------------------------------------------
         # Do a little show and tell with plotting and whatnot

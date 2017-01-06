@@ -4,7 +4,7 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 from scipy.spatial import voronoi_plot_2d
 import matplotlib.pyplot as plt
 from shapely.geometry import *
-from shapely.ops import cascaded_union
+from shapely.ops import linemerge
 
 class NARVoronoi:
     """
@@ -97,7 +97,7 @@ class NARVoronoi:
                         if len(lineseg) == 2:
                             centerlines.append(LineString(lineseg))
 
-        return cascaded_union(MultiLineString(centerlines))
+        return linemerge(centerlines)
 
     def plot(self):
         voronoi_plot_2d(self._vor)
