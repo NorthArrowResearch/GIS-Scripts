@@ -16,6 +16,7 @@ class River:
         # TODO: This is begging for a little abstraction
         driver = ogr.GetDriverByName("ESRI Shapefile")
         dataSource = driver.Open(sRiverShape, 0)
+        spatialRef = dataSource.GetLayer().GetSpatialRef()
         riverjson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
 
         rivershape = MultiPolygon([shape(riverjson)])
@@ -77,7 +78,7 @@ class River:
         if os.path.exists(sCenterline):
             driver.DeleteDataSource(sCenterline)
         outDataSource = driver.CreateDataSource(sCenterline)
-        outLayer = outDataSource.CreateLayer(sCenterline, geom_type=ogr.wkbMultiLineString)
+        outLayer = outDataSource.CreateLayer(sCenterline, spatialRef, geom_type=ogr.wkbMultiLineString)
 
         ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerline)))
 
