@@ -12,7 +12,10 @@ from shapely.geometry import *
 class River:
 
     def __init__(self, sRiverShape, sThalweg, sCenterline):
-        # Open the file and extract the shapes we need
+
+        # --------------------------------------------------------
+        # Load the Shapefiles we need
+        # --------------------------------------------------------
         # TODO: This is begging for a little abstraction
         driver = ogr.GetDriverByName("ESRI Shapefile")
         dataSource = driver.Open(sRiverShape, 0)
@@ -24,9 +27,13 @@ class River:
         # We're assuming here that the thalweg only has one line segment
         dataSource = driver.Open(sThalweg, 0)
 
-
         thalwegjson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
         thalweg = LineString(shape(thalwegjson))
+
+
+        # --------------------------------------------------------
+        # Find the centerline
+        # --------------------------------------------------------
 
         # First and last line segment we need to extend
         thalwegStart = LineString([thalweg.coords[1], thalweg.coords[0]])
@@ -46,32 +53,43 @@ class River:
 
         newThalweg = LineString(thalweglist)
 
+
         # Now split clockwise to get left and right envelopes
         bankshapes = splitClockwise(rivershapeBounds, newThalweg)
 
         # Add all the points (including islands) to one of three lists
         points = []
-        leftpts = []
-        rightpts = []
 
         for pol in rivershape:
             # Exterior is the shell
-            pts = list(pol.exterior.coords)
+            for pt in list(pol.exterior.coords):
+                side = 1 if bankshapes[0].contains(Point(pt)) else -1
+                points.append(RiverPoint(pt, interior=False, side=side))
+
             # Interiors are the islands
-            for interior in pol.interiors:
-                pts = pts + list(interior.coords)
-            for pt in pts:
-                points.append(pt)
-                if bankshapes[0].contains(Point(pt)):
-                    leftpts.append(pt)
-                else:
-                    rightpts.append(pt)
+            for idx, interior in enumerate(pol.interiors):
+                for pt in list(interior.coords):
+                    side = 1 if bankshapes[0].contains(Point(pt)) else -1
+                    points.append(RiverPoint(pt, interior=True, side=side, island=idx))
+
+
 
         # Here's where the Voronoi polygons come into play
-        myVorL = NARVoronoi(MultiPoint(points))
-        # myVorL.plot()
+        myVorL = NARVoronoi(points)
         myVorL.createshapes() # optional. Makes the polygons we will use to visualize
-        centerline = myVorL.collectCenterLines(leftpts, rightpts)
+
+        # This is the function that does the actual work
+        centerline = myVorL.collectCenterLines()
+        alternateLines = []
+        for idx, island in enumerate(rivershape[0].interiors):
+            altLine = myVorL.collectCenterLines(flipIsland=idx)
+            if altLine.type == "LineString":
+                alternateLines.append(altLine.difference(centerline))
+
+
+        # --------------------------------------------------------
+        # Write the output Shapefile
+        # --------------------------------------------------------
 
         schema = {'geometry': 'MultiLineString', 'properties': {'name': 'str'}}
 
@@ -79,38 +97,43 @@ class River:
             driver.DeleteDataSource(sCenterline)
         outDataSource = driver.CreateDataSource(sCenterline)
         outLayer = outDataSource.CreateLayer(sCenterline, spatialRef, geom_type=ogr.wkbMultiLineString)
-
-        ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerline)))
-
-        idField = ogr.FieldDefn('name', ogr.OFTString)
-        outLayer.CreateField(idField)
+        outLayer.CreateField(ogr.FieldDefn('main', ogr.OFTString))
 
         featureDefn = outLayer.GetLayerDefn()
         outFeature = ogr.Feature(featureDefn)
+        ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerline)))
         outFeature.SetGeometry(ogrmultiline)
-        outFeature.SetField('name', ogr.OFTString)
+        outFeature.SetField('main', 'yes')
         outLayer.CreateFeature(outFeature)
+
+        for altline in alternateLines:
+            newfeat = ogr.Feature(featureDefn)
+            linething = ogr.CreateGeometryFromJson(json.dumps(mapping(altline)))
+            newfeat.SetGeometry(linething)
+            newfeat.SetField('main', 'no')
+            outLayer.CreateFeature(newfeat)
+
+
 
         # --------------------------------------------------------
         # Do a little show and tell with plotting and whatnot
         # --------------------------------------------------------
+
         fig = plt.figure(1, figsize=(10, 10))
         ax = fig.gca()
 
         plotShape(ax, bankshapes[0], '#DDCCCC', 1, 0)
         plotShape(ax, bankshapes[1], '#AAAABB', 1, 0)
 
-        plotShape(ax, myVorL.polys, '#444444', 0.2, 6)
+        plotShape(ax, myVorL.polys, '#444444', 0.1, 6)
 
-        plotShape(ax, rivershape, '#AACCAA', 0.2, 8)
-
-        plotShape(ax, MultiPoint(leftpts), '#FF0000', 0.8, 10)
-        plotShape(ax, MultiPoint(rightpts), '#0000FF', 0.8, 10)
+        plotShape(ax, rivershape, '#AACCAA', 0.4, 8)
 
         plotShape(ax, newThalweg, '#FFA500', 0.5, 15)
         plotShape(ax, thalweg, '#00FF00', 0.8, 20)
 
         plotShape(ax, centerline, '#FF0000', 0.8, 30)
+        plotShape(ax, MultiLineString(alternateLines), '#FFFF00', 0.8, 25)
 
         plt.ylim(rivershapeBounds.bounds[1], rivershapeBounds.bounds[3])
         plt.xlim(rivershapeBounds.bounds[0], rivershapeBounds.bounds[2])

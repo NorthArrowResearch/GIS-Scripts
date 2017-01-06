@@ -15,11 +15,11 @@ class NARVoronoi:
     def __init__(self, points):
         #  The centroid is what we're going to use to shift all the coords around
         self.points = points
-        self.centroid = points.centroid.coords[0]
+        self.centroid = MultiPoint([x.point for x in points]).centroid.coords[0]
 
         # Give us a numpy array that is easy to work with then subtract the centroid
         # centering our object around the origin so that the QHull method works properly
-        adjpoints = np.array(points)
+        adjpoints = np.array(MultiPoint([x.point for x in points]))
         adjpoints = adjpoints - self.centroid
 
         try:
@@ -50,7 +50,7 @@ class NARVoronoi:
         self.regions = self._vor.regions
         self.point_region = self._vor.point_region
 
-    def collectCenterLines(self, leftpts, rightpts):
+    def collectCenterLines(self, flipIsland=None):
         """
         # HERE's WHAT WE HAVE:  .
         # vertices	(ndarray of double, shape (nvertices, ndim)) Coordinates of the Voronoi vertices.
@@ -76,9 +76,11 @@ class NARVoronoi:
             lookupregion = np.where(self._vor.point_region == idx)
             if len(lookupregion[0]) > 0:
                 ptidx = lookupregion[0][0]
-                point = self.points[int(ptidx)].coords[0]
-                if point in leftpts:
-                    obj["side"] = -1
+                point = self.points[int(ptidx)]
+                if flipIsland is not None and point.island == flipIsland:
+                    obj["side"] = point.side * -1
+                else:
+                    obj["side"] = point.side
             regions.append(obj)
 
         centerlines = []

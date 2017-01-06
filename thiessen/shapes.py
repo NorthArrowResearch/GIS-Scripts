@@ -2,6 +2,15 @@ import math
 import numpy as np
 from shapely.geometry import *
 
+class RiverPoint:
+
+    def __init__(self, pt, interior=False, side=None, island=None):
+        self.point = pt
+        self.side = side
+        self.interior = interior
+        self.island = island
+
+
 def getBufferedBounds(shape, buffer):
     """
     Get the bounds of a shape and extend them by some arbitrary buffer

@@ -76,7 +76,7 @@ class River:
                             throwaway.append(xs)
 
         # --------------------------------------------------------
-        # Traverse the line
+        # Valid vs invalid?
         # --------------------------------------------------------
         valid = []
         lengths = [xs.length for xs in xslines]
