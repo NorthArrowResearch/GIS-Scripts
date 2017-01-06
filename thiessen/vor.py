@@ -76,7 +76,7 @@ class NARVoronoi:
             lookupregion = np.where(self._vor.point_region == idx)
             if len(lookupregion[0]) > 0:
                 ptidx = lookupregion[0][0]
-                point = self.points[ptidx].coords[0]
+                point = self.points[int(ptidx)].coords[0]
                 if point in leftpts:
                     obj["side"] = -1
             regions.append(obj)
