@@ -4,7 +4,7 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 from scipy.spatial import voronoi_plot_2d
 import matplotlib.pyplot as plt
 from shapely.geometry import *
-from shapely.ops import linemerge
+from shapely.ops import unary_union, linemerge
 
 class NARVoronoi:
     """
@@ -97,8 +97,58 @@ class NARVoronoi:
                         if len(lineseg) == 2:
                             centerlines.append(LineString(lineseg))
 
-        return linemerge(centerlines)
+
+        return linemerge(unary_union(centerlines))
 
     def plot(self):
+
         voronoi_plot_2d(self._vor)
         plt.show()
+
+    def createshapes(self):
+        polys = []
+        for region in self.regions:
+            if len(region) >= 3:
+                polys.append(Polygon([self.vertices[ptidx] for ptidx in region if ptidx >=0]))
+        self.polys = MultiPolygon(polys)
+
+
+# def connectTheDots(multiline):
+#     """
+#     Take a series of adjacent line segments and return a single line
+#     :param multiline:
+#     :return:
+#     """
+#     line = []
+#     fwd = True
+#     lstmulti = list(multiline)
+#     firstline = lstmulti[0]
+#     lstmulti.remove(firstline)
+#
+#     # Pick a line, Any line, to start with
+#     for point in firstline.coords:
+#         nextpt = point
+#         while nextpt is not None:
+#             nextpt = findNext(nextpt, lstmulti)
+#             if nextpt is not None:
+#                 line.append(nextpt) if fwd else line.insert(0, nextpt)
+#         fwd = not fwd
+#
+#     return LineString(line)
+#
+# def findNext(point, lstLine):
+#     """
+#     Simple function for returning the next point in a disjointed series of 2-point lines
+#     :param point:
+#     :param lstLine:
+#     :return:
+#     """
+#     for idx, line in enumerate(lstLine):
+#         if line.coords[0] == point:
+#             lstLine.remove(line)
+#             return line.coords[1]
+#         elif line.coords[1] == point:
+#             lstLine.remove(line)
+#             return line.coords[0]
+#     return None
+

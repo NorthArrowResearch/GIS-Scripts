@@ -68,7 +68,8 @@ class River:
 
         # Here's where the Voronoi polygons come into play
         myVorL = NARVoronoi(MultiPoint(points))
-        myVorL.plot()
+        # myVorL.plot()
+        myVorL.createshapes() # optional. Makes the polygons we will use to visualize
         centerline = myVorL.collectCenterLines(leftpts, rightpts)
 
         schema = {'geometry': 'MultiLineString', 'properties': {'name': 'str'}}
@@ -97,20 +98,22 @@ class River:
 
         plotShape(ax, bankshapes[0], '#DDCCCC', 1, 0)
         plotShape(ax, bankshapes[1], '#AAAABB', 1, 0)
-        # plotShape(ax, rivershapeBounds, 'b', 1, 0)
-        # plotShape(ax, rivershape.envelope, 'b', 0.2, 2)
 
-        plotShape(ax, rivershape, '#AACCAA', 0.2, 5)
+        plotShape(ax, myVorL.polys, '#444444', 0.2, 6)
 
+        plotShape(ax, rivershape, '#AACCAA', 0.2, 8)
 
-        plotShape(ax, MultiPoint(leftpts), 'r', 1, 10)
-        plotShape(ax, MultiPoint(rightpts), 'b', 1, 10)
-        plotShape(ax, newThalweg, 'r', 0.5, 10)
-        plotShape(ax, thalweg, 'g', 1, 14)
+        plotShape(ax, MultiPoint(leftpts), '#FF0000', 0.8, 10)
+        plotShape(ax, MultiPoint(rightpts), '#0000FF', 0.8, 10)
 
-        plotShape(ax, centerline, '#ffa500', 1, 20)
+        plotShape(ax, newThalweg, '#FFA500', 0.5, 15)
+        plotShape(ax, thalweg, '#00FF00', 0.8, 20)
 
-        plt.autoscale(enable=True)
+        plotShape(ax, centerline, '#FF0000', 0.8, 30)
+
+        plt.ylim(rivershapeBounds.bounds[1], rivershapeBounds.bounds[3])
+        plt.xlim(rivershapeBounds.bounds[0], rivershapeBounds.bounds[2])
+        plt.autoscale(enable=False)
         plt.show()
 
 
@@ -130,7 +133,7 @@ def plotShape(ax, mp, color, alpha, zord):
 
     elif mp.type == 'LineString':
         x, y = mp.xy
-        ax.plot(x, y, color=color, alpha=alpha, linewidth=3, solid_capstyle='round', zorder=zord)
+        ax.plot(x, y, color=color, alpha=alpha, linewidth=1, solid_capstyle='round', zorder=zord)
 
     elif mp.type == 'MultiPoint':
         for idx, p in enumerate(mp):
@@ -140,7 +143,7 @@ def plotShape(ax, mp, color, alpha, zord):
     elif mp.type == 'MultiLineString':
         for idx, p in enumerate(mp):
             x, y = p.xy
-            ax.plot(x, y, color=color, alpha=alpha, linewidth=3, solid_capstyle='round', zorder=zord)
+            ax.plot(x, y, color=color, alpha=alpha, linewidth=1, solid_capstyle='round', zorder=zord)
 
     elif mp.type == 'MultiPolygon':
         patches = []
