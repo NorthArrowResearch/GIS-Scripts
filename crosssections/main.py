@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 from descartes import PolygonPatch
-import matplotlib.pyplot as plt
-from matplotlib.collections import PatchCollection
 import ogr
 import json
 import os
-from shapely.geometry import *
-import numpy as np
+import math
+import matplotlib.pyplot as plt
+from matplotlib.collections import PatchCollection
+
 from shapes import *
 
 class River:
@@ -27,69 +27,103 @@ class River:
         # We're assuming here that the centerline only has one line segment
         dataSource = driver.Open(sCenterLine, 0)
 
-        cljson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
-        centerline = LineString(shape(cljson))
-
+        centerlines = []
+        for feature in dataSource.GetLayer():
+            cljson = json.loads(feature.ExportToJson())['geometry']
+            centerlines.append({
+                "main": feature.GetField("main"),
+                "line": LineString(shape(cljson))
+            })
 
         # --------------------------------------------------------
-        # Traverse the line
+        # Traverse the line(s)
         # --------------------------------------------------------
 
-        ended = False
-        currDist = 0
-        # Get 50cm spaced points
-        points = [centerline.interpolate(currDist) for currDist in np.arange(0, centerline.length, 0.5)]
-        # TODO: This offset method is a little problematic. Would be nice to fins a better slope method using shapely
-        _offsetpts = [centerline.interpolate(currDist+0.001) for currDist in np.arange(0, centerline.length, 0.5)]
-        slopes = [((points[idx].coords[0][1] - _offsetpts[idx].coords[0][1]) /
-                   (points[idx].coords[0][0] - _offsetpts[idx].coords[0][0])) for idx,pt in enumerate(_offsetpts)]
-
-        # Longest possible line
+        # Longest possible line we use to extend our cross sections
         diag = getDiag(rivershape)
-        xslines = []
+        allxslines = []
         throwaway = []
 
-        # Now create the cross sections with lengtho = 2*diag
-        for ptidx, pt in enumerate(points):
-            slope = slopes[ptidx]
-            # Negative reciprocal is the negative slope
-            m = np.reciprocal(slopes[ptidx]) * -1
-            # Create a line
-            k = diag / math.sqrt(1 + math.pow(m, 2))
+        for line in centerlines:
+            linexs = []
+            # Get 50cm spaced points
+            points = [line["line"].interpolate(currDist) for currDist in np.arange(0, line["line"].length, 0.5)]
 
-            # Shoot lines out in both directions using +/- k
-            xsLong = LineString([(pt.coords[0][0] - k, pt.coords[0][1] - k * m),
-                                      (pt.coords[0][0] + k, pt.coords[0][1] + k * m)])
+            # TODO: This offset method for slope is a little problematic. Would be nice to find a better slope method using shapely
+            _offsetpts = [line["line"].interpolate(currDist+0.001) for currDist in np.arange(0, line["line"].length, 0.5)]
+            slopes = [((points[idx].coords[0][1] - _offsetpts[idx].coords[0][1]) /
+                       (points[idx].coords[0][0] - _offsetpts[idx].coords[0][0])) for idx, pt in enumerate(_offsetpts)]
 
-            intersections = rivershape.intersection(xsLong)
+            # Now create the cross sections with length = 2 * diag
+            for ptidx, pt in enumerate(points):
+                slope = slopes[ptidx]
 
-            if not intersections.is_empty:
-                if intersections.type == "LineString":
-                    xslines.append(intersections)
-                elif intersections.type == "MultiLineString":
-                    interList = list(intersections)
-                    # Add lines that contain the centerpoint
-                    for xs in interList:
-                        if xs.interpolate(xs.project(pt)).distance(pt) < 0.01:
-                            xslines.append(xs)
+                # Nothing to see here. Just linear algebra
+                # Make sure to handle the infinite slope case
+                if slope == 0:
+                    m = 1
+                    k = diag
+                else:
+                    # Negative reciprocal is the perpendicular slope
+                    m = np.reciprocal(slopes[ptidx]) * -1
+                    k = diag / math.sqrt(1 + math.pow(m, 2))
+
+                # Shoot lines out in both directions using +/- k
+                xsLong = LineString([(pt.coords[0][0] - k, pt.coords[0][1] - k * m),
+                                          (pt.coords[0][0] + k, pt.coords[0][1] + k * m)])
+
+                if math.isnan(xsLong.coords[0][1]):
+                    print list(xsLong.coords)
+                intersections = rivershape.intersection(xsLong)
+                inlist = []
+
+                # Intersections returns a number of object types. We need to deal with all the valid ones
+                if not intersections.is_empty:
+                    if intersections.type == "LineString":
+                        inlist = [intersections]
+                    elif intersections.type == "MultiLineString":
+                        inlist = list(intersections)
+
+                    for xs in inlist:
+                        keep = True
+                        # Add only lines that contain the centerpoint
+                        if xs.interpolate(xs.project(pt)).distance(pt) > 0.01:
+                            keep = False
+                        # If this is not the main channel and our cross section touches the exterior wall in
+                        # more than one place then lose it
+                        if line['main'] == "no":
+                            dista = Point(xs.coords[0]).distance(rivershape[0].exterior)
+                            distb = Point(xs.coords[1]).distance(rivershape[0].exterior)
+                            if dista < 0.001 and distb < 0.001:
+                                keep = False
+                        if keep:
+                            linexs.append(xs)
                         else:
                             throwaway.append(xs)
+
+            allxslines.append(linexs)
 
         # --------------------------------------------------------
         # Valid vs invalid?
         # --------------------------------------------------------
         valid = []
-        lengths = [xs.length for xs in xslines]
-        stdev = np.std(lengths)
-        mean = np.mean(lengths)
+        invalid = []
+        for xsgroup in allxslines:
+            groupvalid = []
+            groupinvalid = []
+            lengths = [xs.length for xs in xsgroup]
+            stdev = np.std(lengths)
+            mean = np.mean(lengths)
 
-        for xs in xslines:
-            isValid = True
-            if xs.length > (mean + 4 * stdev):
-                isValid = False
-            valid.append(isValid)
-
-        validXS = [xs for idx, xs in enumerate(xslines) if valid[idx]]
+            # Test each cross section for validity.
+            # TODO: Right now it's just stddev test. There should probably be others
+            for xs in xsgroup:
+                if xs.length > (mean + 4 * stdev):
+                    groupvalid.append(xs)
+                else:
+                    groupinvalid.append(xs)
+            valid.append(groupvalid)
+            valid.append(groupinvalid)
 
         # --------------------------------------------------------
         # Write the output Shapefile
@@ -102,7 +136,13 @@ class River:
         outDataSource = driver.CreateDataSource(sXS)
         outLayer = outDataSource.CreateLayer(sXS, spatialRef, geom_type=ogr.wkbMultiLineString)
 
-        ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(MultiLineString(xslines))))
+        # quick and dirty write all xs to shapefile
+        exportlines = []
+        for g in allxslines:
+            for xs in g:
+                exportlines.append(xs)
+
+        ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(MultiLineString(exportlines))))
 
         idField = ogr.FieldDefn('name', ogr.OFTString)
         outLayer.CreateField(idField)
@@ -120,13 +160,19 @@ class River:
         fig = plt.figure(1, figsize=(10, 10))
         ax = fig.gca()
 
-        plotShape(ax, rivershape, '#AAAAAA', 1, 5)
-        plotShape(ax, MultiPoint(points), '#000000', 1, 10)
-        plotShape(ax, centerline, '#FFAABB', 0.5, 20)
+        # plotShape(ax, rivershape, '#AAAAAA', 1, 5)
+        plotShape(ax, Polygon(rivershape[0].exterior), '#AAAAAA', 1, 5)
 
-        plotShape(ax, MultiLineString(throwaway), '#FF0000', 1, 20)
-        plotShape(ax, MultiLineString(xslines), '#00FF00', 1, 25)
-        plotShape(ax, MultiLineString(validXS), '#0000FF', 1, 30)
+
+        for c in centerlines:
+            plotShape(ax, c['line'], '#000000', 0.5, 20)
+
+        # plotShape(ax, MultiLineString(throwaway), '#FF0000', 1, 20)
+
+        for g in valid:
+            plotShape(ax, MultiLineString(g), '#0000FF', 0.3, 20)
+        # for g in invalid:
+        #     plotShape(ax, MultiLineString(g), '#00FF00', 0.5, 20)
 
         plt.autoscale(enable=True)
         plt.show()
