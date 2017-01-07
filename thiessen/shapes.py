@@ -91,6 +91,8 @@ def splitClockwise(rect, thalweg):
     :param thalweg: a thalweg with start and end points that intersects the rectangle
     :return:
     """
+
+    # TODO: This might break if the thalweg is reversed or if the thalweg us weird. Lots of testing necessary
     # The thalweg has two points we care about: the first and last points that should intersect the rectangle
     thalwegStart = thalweg.coords[0]
     thalwegEnd = thalweg.coords[-1]
@@ -110,23 +112,29 @@ def splitClockwise(rect, thalweg):
     shape2 = []
     shape1idx = 0
     shape2idx = 0
-    # Our boolean switcher
+
+    # Our boolean switchers
     firstshape = True
     foundfirst = False
     reverseThalweg = False
+
     # Calculate shape 1 and shape 2 by traversal
     for idx, pt in enumerate(coordsorter):
-        # We hit the startpoint. note it using the idx vars and floop the firstshape.
+
+        # If we hit the thalweg start note it using the idx vars and floop the firstshape.
         if pt == thalwegStart:
             shape1idx = len(shape1)
             shape2idx = len(shape2)
             firstshape = not firstshape
             foundfirst = True
+
         # At the endpoint we just floop the firstshape.
         elif pt == thalwegEnd:
             firstshape = not firstshape
+            # We found the tail before we found the head. Make a note that it's ass-backwards
             if not foundfirst:
                 reverseThalweg = True
+
         # If this is a rectangle corner we add it to the appropriate shape
         elif firstshape:
             shape1.append(pt)

@@ -13,6 +13,10 @@ class NARVoronoi:
     """
 
     def __init__(self, points):
+        """
+        The init method is where all the Voronoi magic happens.
+        :param points:
+        """
         #  The centroid is what we're going to use to shift all the coords around
         self.points = points
         self.centroid = MultiPoint([x.point for x in points]).centroid.coords[0]
@@ -44,6 +48,7 @@ class NARVoronoi:
             self.region_neighbour.append(adj)
 
         # Transform everything back to where it was (with some minor floating point rounding problems)
+        # Note that we will use the following and NOT anything from inside _vor (which is shifted to the origin)
         self.vertices = self._vor.vertices + self.centroid
         self.ridge_points = self._vor.ridge_points
         self.ridge_vertices = self._vor.ridge_vertices
@@ -52,19 +57,14 @@ class NARVoronoi:
 
     def collectCenterLines(self, flipIsland=None):
         """
-        # HERE's WHAT WE HAVE:  .
-        # vertices	(ndarray of double, shape (nvertices, ndim)) Coordinates of the Voronoi vertices.
 
-        # ridge_points	(ndarray of ints, shape (nridges, 2)) Indices of the points between which each Voronoi ridge lies.
-        # ridge_vertices	(list of list of ints, shape (nridges, *)) Indices of the Voronoi vertices forming each Voronoi ridge.
-        # regions	(list of list of ints, shape (nregions, *)) Indices of the Voronoi vertices forming each Voronoi region. -1 indicates vertex outside the Voronoi diagram.
-
-        # point_region	(list of ints, shape (npoints)) Index of the Voronoi region for each input point. If qhull option "Qc" was not specified, the list will contain -1 for points that are not associated with a Voronoi region.
-        :param leftpts:
-        :param rightpts:
-        :return:
+        :param flipIsland: The id of the island to reassign to a different side. Useful when calculating alternate
+                            centerlines around islands.
+        :return: LineString (Valid) or MultiLineString (invalid)
         """
 
+        # The first loop here assigns each polygon to either left or right side of the channel based on the
+        # self.point object we passed in earlier.
         regions = []
         for idx, reg in enumerate(self.region_neighbour):
             # obj will have everything we need to know.
@@ -83,14 +83,19 @@ class NARVoronoi:
                     obj["side"] = point.side
             regions.append(obj)
 
+        # The second loop goes over each region's neighbours and if a neighbour has a different side
+        # Then we must be on opposite sides of a centerline and so try and find two points representing a wall between
+        # These regions that we will add to our centerline
         centerlines = []
-        # loop over ridge_vertices. idx = ridge
         for region in regions:
             for nidx in region['adjacents']:
                 neighbour = regions[nidx]
                 if neighbour['side'] != region['side']:
+
                     # Get the two shared points these two regions should have
+                    # NOTE: set(A) - (set(A) - set(B)) is a great pattern
                     sharedpts = set(self.regions[region['id']]) - (set(self.regions[region['id']]) - set(self.regions[nidx]))
+
                     # Add this point to the list if it is unique
                     if -1 not in sharedpts:
                         lineseg = []
@@ -99,58 +104,18 @@ class NARVoronoi:
                         if len(lineseg) == 2:
                             centerlines.append(LineString(lineseg))
 
-
+        # linemerge and unary_union are used to turn MultiLineStrings into a single LineString. We might not succeed
+        # Though if the lines don't connect
         return linemerge(unary_union(centerlines))
 
-    def plot(self):
-
-        voronoi_plot_2d(self._vor)
-        plt.show()
-
     def createshapes(self):
+        """
+        Simple helper function to make polygons out of the untransformed (i.e. original) Voronoi vertices.
+        :return:
+        """
         polys = []
         for region in self.regions:
             if len(region) >= 3:
                 polys.append(Polygon([self.vertices[ptidx] for ptidx in region if ptidx >=0]))
         self.polys = MultiPolygon(polys)
-
-
-# def connectTheDots(multiline):
-#     """
-#     Take a series of adjacent line segments and return a single line
-#     :param multiline:
-#     :return:
-#     """
-#     line = []
-#     fwd = True
-#     lstmulti = list(multiline)
-#     firstline = lstmulti[0]
-#     lstmulti.remove(firstline)
-#
-#     # Pick a line, Any line, to start with
-#     for point in firstline.coords:
-#         nextpt = point
-#         while nextpt is not None:
-#             nextpt = findNext(nextpt, lstmulti)
-#             if nextpt is not None:
-#                 line.append(nextpt) if fwd else line.insert(0, nextpt)
-#         fwd = not fwd
-#
-#     return LineString(line)
-#
-# def findNext(point, lstLine):
-#     """
-#     Simple function for returning the next point in a disjointed series of 2-point lines
-#     :param point:
-#     :param lstLine:
-#     :return:
-#     """
-#     for idx, line in enumerate(lstLine):
-#         if line.coords[0] == point:
-#             lstLine.remove(line)
-#             return line.coords[1]
-#         elif line.coords[1] == point:
-#             lstLine.remove(line)
-#             return line.coords[0]
-#     return None
 

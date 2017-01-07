@@ -39,13 +39,14 @@ class River:
         thalwegStart = LineString([thalweg.coords[1], thalweg.coords[0]])
         thalwegEnd = LineString([thalweg.coords[-2], thalweg.coords[-1]])
 
+        # Get the bounds of the river with a little extra buffer (10)
         rivershapeBounds = getBufferedBounds(rivershape, 10)
 
-        # Now see where the lines intersect the rectangle
+        # Now see where the lines intersect the bounding rectangle
         thalwegStartExt = rectIntersect(thalwegStart, rivershapeBounds)
         thalwegEndExt = rectIntersect(thalwegEnd, rivershapeBounds)
 
-        # Now make a new thalweg by adding the extension points to the start
+        # Now make a NEW thalweg by adding the extension points to the start
         # and end points of the original
         thalweglist = list(thalweg.coords)
         thalweglist.insert(0, thalwegStartExt.coords[1])
@@ -53,37 +54,41 @@ class River:
 
         newThalweg = LineString(thalweglist)
 
-
-        # Now split clockwise to get left and right envelopes
+        # splitClockwise gives us our left and right bank polygons
         bankshapes = splitClockwise(rivershapeBounds, newThalweg)
 
-        # Add all the points (including islands) to one of three lists
+        # Add all the points (including islands) to the list
         points = []
 
         for pol in rivershape:
-            # Exterior is the shell
+            # Exterior is the shell and there is only ever 1
             for pt in list(pol.exterior.coords):
                 side = 1 if bankshapes[0].contains(Point(pt)) else -1
                 points.append(RiverPoint(pt, interior=False, side=side))
 
-            # Interiors are the islands
+            # Interiors are the islands and there can be lots so loop over each
             for idx, interior in enumerate(pol.interiors):
                 for pt in list(interior.coords):
                     side = 1 if bankshapes[0].contains(Point(pt)) else -1
                     points.append(RiverPoint(pt, interior=True, side=side, island=idx))
 
-
-
         # Here's where the Voronoi polygons come into play
         myVorL = NARVoronoi(points)
-        myVorL.createshapes() # optional. Makes the polygons we will use to visualize
 
-        # This is the function that does the actual work
+        # (OPTIONAL). Makes the polygons we will use to visualize
+        myVorL.createshapes()
+
+        # This is the function that does the actual work of creating the centerline
         centerline = myVorL.collectCenterLines()
+
+        # Now we've got the main centerline let's flip the islands one by one
+        # and get alternate lines
         alternateLines = []
         for idx, island in enumerate(rivershape[0].interiors):
             altLine = myVorL.collectCenterLines(flipIsland=idx)
             if altLine.type == "LineString":
+                # We difference the alternate lines with the main line
+                # to get just the bit that is different
                 alternateLines.append(altLine.difference(centerline))
 
 
@@ -100,12 +105,14 @@ class River:
         outLayer.CreateField(ogr.FieldDefn('main', ogr.OFTString))
 
         featureDefn = outLayer.GetLayerDefn()
+        # The main centerline gets written first
         outFeature = ogr.Feature(featureDefn)
         ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerline)))
         outFeature.SetGeometry(ogrmultiline)
         outFeature.SetField('main', 'yes')
         outLayer.CreateFeature(outFeature)
 
+        # We do all this again for each alternate line
         for altline in alternateLines:
             newfeat = ogr.Feature(featureDefn)
             linething = ogr.CreateGeometryFromJson(json.dumps(mapping(altline)))
