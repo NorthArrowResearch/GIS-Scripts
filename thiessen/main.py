@@ -11,7 +11,7 @@ from shapely.geometry import *
 
 class River:
 
-    def __init__(self, sRiverShape, sThalweg, sCenterline):
+    def __init__(self, sRiverShape, sThalweg, sIslands, sCenterline):
 
         # --------------------------------------------------------
         # Load the Shapefiles we need
@@ -30,6 +30,14 @@ class River:
         thalwegjson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
         thalweg = LineString(shape(thalwegjson))
 
+        # Load in the island shapes
+        dataSource = driver.Open(sIslands, 0)
+        islands = []
+
+        for isl in dataSource.GetLayer():
+            if isl.GetField("Qualifying") == 1:
+                islandjson = json.loads(isl.ExportToJson())['geometry']
+                islands.append(Polygon(shape(islandjson)))
 
         # --------------------------------------------------------
         # Find the centerline
@@ -66,9 +74,9 @@ class River:
                 side = 1 if bankshapes[0].contains(Point(pt)) else -1
                 points.append(RiverPoint(pt, interior=False, side=side))
 
-            # Interiors are the islands and there can be lots so loop over each
-            for idx, interior in enumerate(pol.interiors):
-                for pt in list(interior.coords):
+            # NOTE: We ignore interiors and use the islands shapefile instead
+            for idx, island in enumerate(islands):
+                for pt in list(island.exterior.coords):
                     side = 1 if bankshapes[0].contains(Point(pt)) else -1
                     points.append(RiverPoint(pt, interior=True, side=side, island=idx))
 
@@ -84,7 +92,7 @@ class River:
         # Now we've got the main centerline let's flip the islands one by one
         # and get alternate lines
         alternateLines = []
-        for idx, island in enumerate(rivershape[0].interiors):
+        for idx, island in enumerate(islands):
             altLine = myVorL.collectCenterLines(flipIsland=idx)
             if altLine.type == "LineString":
                 # We difference the alternate lines with the main line
@@ -189,7 +197,7 @@ def main():
     '''
 
     # We're just iterating over a folder. Change this to something else if you want
-    theRiver = River("sample/WettedExtent.shp", "sample/Thalweg.shp", "output/centerline.shp")
+    theRiver = River("sample/WettedExtent.shp", "sample/Thalweg.shp", "sample/Islands.shp", "output/centerline.shp")
     # vor = NARVoronoi(theRiver.wet.points)
     # vor.plot()
 

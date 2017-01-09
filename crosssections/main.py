@@ -11,7 +11,7 @@ from shapes import *
 
 class River:
 
-    def __init__(self, sRiverShape, sCenterLine, sXS):
+    def __init__(self, sRiverShape, sIslands, sCenterLine, sXS):
 
         # --------------------------------------------------------
         # Load the Shapefiles we need
@@ -22,7 +22,7 @@ class River:
         dataSource = driver.Open(sRiverShape, 0)
         riverjson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
         spatialRef = dataSource.GetLayer().GetSpatialRef()
-        rivershape = MultiPolygon([shape(riverjson)])
+        oldrivershape = MultiPolygon([shape(riverjson)])
 
         # We're assuming here that the centerline only has one line segment
         dataSource = driver.Open(sCenterLine, 0)
@@ -34,6 +34,22 @@ class River:
                 "main": feature.GetField("main"),
                 "line": LineString(shape(cljson))
             })
+
+        # Load in the island shapes
+        dataSource = driver.Open(sIslands, 0)
+        islands = []
+
+        for isl in dataSource.GetLayer():
+            if isl.GetField("Qualifying") == 1:
+                islandjson = json.loads(isl.ExportToJson())['geometry']
+                islands.append(Polygon(shape(islandjson)))
+
+        # --------------------------------------------------------
+        # Make a new rivershape using the exterior and only
+        # qualifying islands
+        # --------------------------------------------------------
+
+        rivershape = Polygon(oldrivershape[0].exterior).difference(MultiPolygon(islands))
 
         # --------------------------------------------------------
         # Traverse the line(s)
@@ -74,6 +90,9 @@ class River:
 
                 if math.isnan(xsLong.coords[0][1]):
                     print list(xsLong.coords)
+
+                # Make a shape that is just the exterior shape and the qualifying islands
+
                 intersections = rivershape.intersection(xsLong)
                 inlist = []
 
@@ -92,8 +111,8 @@ class River:
                         # If this is not the main channel and our cross section touches the exterior wall in
                         # more than one place then lose it
                         if line['main'] == "no":
-                            dista = Point(xs.coords[0]).distance(rivershape[0].exterior)
-                            distb = Point(xs.coords[1]).distance(rivershape[0].exterior)
+                            dista = Point(xs.coords[0]).distance(rivershape.exterior)
+                            distb = Point(xs.coords[1]).distance(rivershape.exterior)
                             if dista < 0.001 and distb < 0.001:
                                 keep = False
                         if keep:
@@ -160,9 +179,7 @@ class River:
         fig = plt.figure(1, figsize=(10, 10))
         ax = fig.gca()
 
-        # plotShape(ax, rivershape, '#AAAAAA', 1, 5)
-        plotShape(ax, Polygon(rivershape[0].exterior), '#AAAAAA', 1, 5)
-
+        plotShape(ax, rivershape, '#AAAAAA', 1, 5)
 
         for c in centerlines:
             plotShape(ax, c['line'], '#000000', 0.5, 20)
@@ -171,8 +188,8 @@ class River:
 
         for g in valid:
             plotShape(ax, MultiLineString(g), '#0000FF', 0.3, 20)
-        # for g in invalid:
-        #     plotShape(ax, MultiLineString(g), '#00FF00', 0.5, 20)
+        for g in invalid:
+            plotShape(ax, MultiLineString(g), '#00FF00', 0.5, 20)
 
         plt.autoscale(enable=True)
         plt.show()
@@ -230,7 +247,7 @@ def main():
     '''
 
     # We're just iterating over a folder. Change this to something else if you want
-    theRiver = River("sample/WettedExtent.shp", "../thiessen/output/centerline.shp", "output/crosssection.shp")
+    theRiver = River("../thiessen/sample/WettedExtent.shp", "../thiessen/sample/Islands.shp", "../thiessen/output/centerline.shp", "output/crosssection.shp")
     # vor = NARVoronoi(theRiver.wet.points)
     # vor.plot()
 
