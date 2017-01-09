@@ -1,13 +1,16 @@
 #!/usr/bin/env python
-from descartes import PolygonPatch
 import ogr
+from shapely.geometry import *
 import json
 import os
 import math
+import numpy as np
+
+# These are for graphic only
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
+from descartes import PolygonPatch
 
-from shapes import *
 
 class River:
 
@@ -46,7 +49,7 @@ class River:
 
         # --------------------------------------------------------
         # Make a new rivershape using the exterior and only
-        # qualifying islands
+        # qualifying islands from that shapefile
         # --------------------------------------------------------
 
         rivershape = Polygon(oldrivershape[0].exterior).difference(MultiPolygon(islands))
@@ -172,24 +175,28 @@ class River:
         outFeature.SetField('name', ogr.OFTString)
         outLayer.CreateFeature(outFeature)
 
-
         # --------------------------------------------------------
         # Do a little show and tell with plotting and whatnot
         # --------------------------------------------------------
         fig = plt.figure(1, figsize=(10, 10))
         ax = fig.gca()
 
+        # The shape of the river is grey (this is the one with only qualifying islands
         plotShape(ax, rivershape, '#AAAAAA', 1, 5)
 
+        # Centerline is black
         for c in centerlines:
             plotShape(ax, c['line'], '#000000', 0.5, 20)
 
-        # plotShape(ax, MultiLineString(throwaway), '#FF0000', 1, 20)
+        # Throwaway lines (the ones that are too whack to even test for validity) are bright red
+        plotShape(ax, MultiLineString(throwaway), '#FF0000', 0.5, 20)
 
+        # The valid crosssections are blue
         for g in valid:
-            plotShape(ax, MultiLineString(g), '#0000FF', 0.3, 20)
+            plotShape(ax, MultiLineString(g), '#0000FF', 0.7, 25)
+        # Invalid crosssections are orange
         for g in invalid:
-            plotShape(ax, MultiLineString(g), '#00FF00', 0.5, 20)
+            plotShape(ax, MultiLineString(g), '#00FF00', 0.7, 20)
 
         plt.autoscale(enable=True)
         plt.show()
@@ -248,8 +255,6 @@ def main():
 
     # We're just iterating over a folder. Change this to something else if you want
     theRiver = River("../thiessen/sample/WettedExtent.shp", "../thiessen/sample/Islands.shp", "../thiessen/output/centerline.shp", "output/crosssection.shp")
-    # vor = NARVoronoi(theRiver.wet.points)
-    # vor.plot()
 
     print "done"
 

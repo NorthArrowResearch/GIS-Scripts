@@ -1,8 +1,6 @@
 import numpy as np
 from scipy.spatial.qhull import QhullError
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from scipy.spatial import voronoi_plot_2d
-import matplotlib.pyplot as plt
+from scipy.spatial import Voronoi
 from shapely.geometry import *
 from shapely.ops import unary_union, linemerge
 

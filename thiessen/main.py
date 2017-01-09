@@ -1,13 +1,18 @@
 #!/usr/bin/env python
-from vor import NARVoronoi
-from descartes import PolygonPatch
-import matplotlib.pyplot as plt
-from matplotlib.collections import PatchCollection
-from shapes import *
 import ogr
 import json
 import os
 from shapely.geometry import *
+
+# We wrote two little files with helper methods:
+from vor import NARVoronoi
+from shapes import *
+
+# These are just for graphing
+import matplotlib.pyplot as plt
+from matplotlib.collections import PatchCollection
+from descartes import PolygonPatch
+
 
 class River:
 
@@ -137,17 +142,23 @@ class River:
         fig = plt.figure(1, figsize=(10, 10))
         ax = fig.gca()
 
+        # Left and right banks are light red and blue
         plotShape(ax, bankshapes[0], '#DDCCCC', 1, 0)
         plotShape(ax, bankshapes[1], '#AAAABB', 1, 0)
 
+        # The Voronoi shapes are light grey
         plotShape(ax, myVorL.polys, '#444444', 0.1, 6)
 
+        # The rivershape is slightly green
         plotShape(ax, rivershape, '#AACCAA', 0.4, 8)
 
-        plotShape(ax, newThalweg, '#FFA500', 0.5, 15)
-        plotShape(ax, thalweg, '#00FF00', 0.8, 20)
+        # Thalweg is green and where it extends to the bounding rectangle is orange
+        plotShape(ax, newThalweg, '#FFA500', 1, 15)
+        plotShape(ax, thalweg, '#00FF00', 1, 20)
 
+        # The centerline we choose is bright red
         plotShape(ax, centerline, '#FF0000', 0.8, 30)
+        # The alternate lines are in yellow
         plotShape(ax, MultiLineString(alternateLines), '#FFFF00', 0.8, 25)
 
         plt.ylim(rivershapeBounds.bounds[1], rivershapeBounds.bounds[3])
@@ -198,8 +209,6 @@ def main():
 
     # We're just iterating over a folder. Change this to something else if you want
     theRiver = River("sample/WettedExtent.shp", "sample/Thalweg.shp", "sample/Islands.shp", "output/centerline.shp")
-    # vor = NARVoronoi(theRiver.wet.points)
-    # vor.plot()
 
     print "done"
 
