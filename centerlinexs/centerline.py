@@ -10,8 +10,29 @@ from shapes import *
 from geosmoothing import *
 from plotting import Plotter
 
+########################################################
+# Here are some factors you can play with
+
+# This is the smoothing factor (k) that we apply to the spline AFTER the centerline has
+# been created
+LINE_SPL_SMPAR = 5
+# The factor to throw into shapely.simplify (http://toblerity.org/shapely/manual.html)
+SHAPELY_SIMPLIFY = 0.01
+########################################################
+
+
 # These are just for graphing
 def centerline(args):
+    """
+    A Note about debugging:
+
+    You can use the following paths in this repo:
+
+     "../sampledata/WettedExtent.shp" "../sampledata/Thalweg.shp" "../sampledata/Islands.shp" "output/centerline.shp"
+
+    :param args:
+    :return:
+    """
 
     log = Logger("Centerline")
 
@@ -40,7 +61,7 @@ def centerline(args):
     riverspliner = GeoSmoothing()
     smoothRiver = riverspliner.smooth(rivershape)
     # The simplifyer reduces point count to make things manageable
-    smoothRiver = smoothRiver.simplify(0.01)
+    smoothRiver = smoothRiver.simplify(SHAPELY_SIMPLIFY)
 
     # --------------------------------------------------------
     # Find the Centerline
@@ -86,12 +107,9 @@ def centerline(args):
     log.info("Calculating Voronoi Polygons...")
     myVorL = NARVoronoi(points)
 
-    # (OPTIONAL). Makes the polygons we will use to visualize
-    myVorL.createshapes()
-
     # This is the function that does the actual work of creating the centerline
     log.info("Spline Smoothing Main Line...")
-    linespliner = GeoSmoothing(spl_smpar=5)
+    linespliner = GeoSmoothing(spl_smpar=LINE_SPL_SMPAR)
     centerline = myVorL.collectCenterLines()
     centerlineSmooth = linespliner.smooth(centerline)
 
@@ -141,11 +159,14 @@ def centerline(args):
         log.info("Plotting Results...")
         plt = Plotter()
 
+        # (OPTIONAL). Makes the polygons we will use to visualize
+        myVorL.createshapes()
+
         # Left and right banks are light red and blue
         plt.plotShape(bankshapes[0], '#DDCCCC', 1, 0)
         plt.plotShape(bankshapes[1], '#AAAABB', 1, 0)
 
-        # The Voronoi shapes are light grey
+        # The Voronoi shapes are light grey (really slow for some reason)
         # plt.plotShape(myVorL.polys, '#444444', 0.1, 6)
 
         # The rivershape is slightly green
@@ -190,7 +211,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not args.river or not args.thalweg or not args.islands or not args.centerline:
-        print "ERROR: Missing arguments"
+        log.error("ERROR: Missing arguments")
         parser.print_help()
         exit(0)
 

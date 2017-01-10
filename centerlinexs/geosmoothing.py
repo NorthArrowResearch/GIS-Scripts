@@ -20,28 +20,22 @@
 #  MA 02110-1301, USA.
 #
 
-
 import numpy as np
-import logging
+from logger import Logger
 from scipy.interpolate import splprep, splev
 from shapely.geometry import LineString, Polygon, mapping, asShape, MultiPolygon
 
 
 class GeoSmtBase(object):
 
-    def __init__(self, level=logging.INFO):
-        logfmt = "[%(asctime)s - %(levelname)s] - %(message)s"
-        dtfmt = "%Y-%m-%d %I:%M:%S"
-        logging.basicConfig(level=level, format=logfmt, datefmt=dtfmt)
-
-    def getLogger(self):
-        return logging.getLogger()
+    def __init__(self):
+        log = Logger("GeoSmtBase")
 
 class Splines(GeoSmtBase):
 
     def __init__(self):
         lg = GeoSmtBase()
-        self.__logger = lg.getLogger()
+        self.log = Logger('Splines')
 
     def compSplineKnots(self, x, y, s, k, nest=-1):
         """
@@ -56,7 +50,7 @@ class Splines(GeoSmtBase):
         tck_u, fp, ier, msg = splprep([x,y], s=s, k=k, nest=nest, full_output=1)
 
         if ier > 0:
-            self.__logger.error("{0}. ier={1}".format(msg, ier))
+            self.log.error("{0}. ier={1}".format(msg, ier))
 
         return(tck_u, fp)
 
@@ -79,7 +73,7 @@ class Splines(GeoSmtBase):
 
 class GeoSmoothing(GeoSmtBase):
 
-    def __init__(self, spl_smpar=0, spl_order=2, verbose=True):
+    def __init__(self, spl_smpar=0, spl_order=2):
         """
         spl_smpar: smoothness parameter
         spl_order: spline order
@@ -87,12 +81,9 @@ class GeoSmoothing(GeoSmtBase):
         self.__spl_smpar = spl_smpar
         self.__spl_order = spl_order
 
-        if not verbose:
-            lg = GeoSmtBase(level=logging.ERROR)
-        else:
-            lg = GeoSmtBase()
+        lg = GeoSmtBase()
 
-        self.__logger = lg.getLogger()
+        self.log = Logger('GeoSmoothing')
 
     def __getCoordinates(self, geom):
         """

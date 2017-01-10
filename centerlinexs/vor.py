@@ -3,6 +3,7 @@ from scipy.spatial.qhull import QhullError
 from scipy.spatial import Voronoi
 from shapely.geometry import *
 from shapely.ops import unary_union, linemerge
+from logger import Logger
 
 class NARVoronoi:
     """
@@ -18,6 +19,7 @@ class NARVoronoi:
         # The centroid is what we're going to use to shift all the coords around
         self.points = points
         self.centroid = MultiPoint([x.point for x in points]).centroid.coords[0]
+        self.log = Logger('NARVoronoi')
 
         # Give us a numpy array that is easy to work with then subtract the centroid
         # centering our object around the origin so that the QHull method works properly
@@ -27,11 +29,9 @@ class NARVoronoi:
         try:
             self._vor = Voronoi(adjpoints)
         except QhullError as e:
-            print "Something went wrong with QHull"
-            print e
+            self.log.error("Something went wrong with QHull", e)
         except ValueError as e:
-            print "Invalid array specified"
-            print e
+            self.log.error("Invalid array specified", e)
 
         # bake in region adjacency (I have no idea why it's not in by default)
         self.region_neighbour = []
@@ -109,6 +109,7 @@ class NARVoronoi:
     def createshapes(self):
         """
         Simple helper function to make polygons out of the untransformed (i.e. original) Voronoi vertices.
+        We use this mainly for visualization
         :return:
         """
         polys = []

@@ -1,7 +1,6 @@
-import os, sys, xml, datetime, pytz, re
+import os, xml, datetime, re
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
-import logging, logging.handlers
 from pprint import pformat
 
 class _LoggerSingleton:

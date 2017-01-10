@@ -1,13 +1,24 @@
 #!/usr/bin/env python
 from shapely.geometry import *
 import argparse
-import os, sys
+import sys
 import numpy as np
 from shapes import *
 from plotting import Plotter
 from logger import Logger
+from metrics import *
 
 def crosssections(args):
+    """
+    A Note about debugging:
+
+    You can use the following paths in this repo:
+
+    "sample/WettedExtent.shp" "sample/Islands.shp" "output/centerline.shp" "output/DEM.tif" "output/crosssections.shp"
+
+    :param args:
+    :return:
+    """
 
     # --------------------------------------------------------
     # Load the Shapefiles we need
@@ -126,6 +137,12 @@ def crosssections(args):
         valid.append(groupinvalid)
 
     # --------------------------------------------------------
+    # Metric Calculation
+    # --------------------------------------------------------
+    calcMetrics(rivershape, args.DEM.name)
+
+
+    # --------------------------------------------------------
     # Write the output Shapefile
     # --------------------------------------------------------
     # TODO: I'd love to abstract all this away but it's a pain to do this in a generic way
@@ -192,6 +209,9 @@ if __name__ == "__main__":
     parser.add_argument('centerline',
                         help='Path to the centerline shapefile',
                         type=argparse.FileType('r'))
+    parser.add_argument('dem',
+                        help='Path to the DEM Raster (used for metric calculation)',
+                        type=argparse.FileType('r'))
     parser.add_argument('crosssections',
                         help='Path to the desired output crosssections')
     parser.add_argument('--noviz',
@@ -200,7 +220,7 @@ if __name__ == "__main__":
                         default=False)
     args = parser.parse_args()
 
-    if not args.river or not args.centerline or not args.islands or not args.crosssections:
+    if not args.river or not args.centerline or not args.islands or not args.crosssections or not args.dem:
         print "ERROR: Missing arguments"
         parser.print_help()
         exit(0)
