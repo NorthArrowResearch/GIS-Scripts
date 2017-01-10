@@ -189,14 +189,14 @@ class River:
             plotShape(ax, c['line'], '#000000', 0.5, 20)
 
         # Throwaway lines (the ones that are too whack to even test for validity) are bright red
-        plotShape(ax, MultiLineString(throwaway), '#FF0000', 0.5, 20)
+        # plotShape(ax, MultiLineString(throwaway), '#FF0000', 0.5, 20)
 
         # The valid crosssections are blue
         for g in valid:
             plotShape(ax, MultiLineString(g), '#0000FF', 0.7, 25)
         # Invalid crosssections are orange
-        for g in invalid:
-            plotShape(ax, MultiLineString(g), '#00FF00', 0.7, 20)
+        # for g in invalid:
+        #     plotShape(ax, MultiLineString(g), '#00FF00', 0.7, 20)
 
         plt.autoscale(enable=True)
         plt.show()

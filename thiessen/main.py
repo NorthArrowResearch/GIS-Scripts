@@ -52,10 +52,9 @@ class River:
         # --------------------------------------------------------
 
         rivershape = Polygon(oldrivershape[0].exterior).difference(MultiPolygon(islands))
-        smoothing = GeoSmoothing()
-        smoothRiver = smoothing.smooth(rivershape)
-        smoothRiver = smoothRiver.simplify(0.02)
-
+        riverspliner = GeoSmoothing()
+        smoothRiver = riverspliner.smooth(rivershape)
+        smoothRiver = smoothRiver.simplify(0.01)
 
         # --------------------------------------------------------
         # Find the centerline
@@ -104,11 +103,9 @@ class River:
         myVorL.createshapes()
 
         # This is the function that does the actual work of creating the centerline
+        linespliner = GeoSmoothing(spl_smpar=5)
         centerline = myVorL.collectCenterLines()
-        centerlineSmooth = smoothing.smooth(centerline)
-
-        print len(centerline.coords)
-        print len(centerlineSmooth.coords)
+        centerlineSmooth = linespliner.smooth(centerline)
 
         # Now we've got the main centerline let's flip the islands one by one
         # and get alternate lines
@@ -118,7 +115,7 @@ class River:
             if altLine.type == "LineString":
                 # We difference the alternate lines with the main line
                 # to get just the bit that is different
-                smoothAlt = smoothing.smooth(altLine.difference(centerline))
+                smoothAlt = linespliner.smooth(altLine.difference(centerline))
                 alternateLines.append(smoothAlt)
 
 
@@ -168,13 +165,14 @@ class River:
 
         # The rivershape is slightly green
         plotShape(ax, rivershape, '#AACCAA', 0.4, 8)
-        plotShape(ax, smoothRiver, '#AAAACC', 0.4, 8)
+        plotShape(ax, smoothRiver, '#AAAACC', 0.2, 8)
 
         # Thalweg is green and where it extends to the bounding rectangle is orange
         plotShape(ax, newThalweg, '#FFA500', 1, 15)
         plotShape(ax, thalweg, '#00FF00', 1, 20)
 
         # The centerline we choose is bright red
+        plotShape(ax, centerline, '#660000', 0.6, 30)
         plotShape(ax, centerlineSmooth, '#FF0000', 0.8, 30)
         # The alternate lines are in yellow
         plotShape(ax, MultiLineString(alternateLines), '#FFFF00', 0.8, 25)
