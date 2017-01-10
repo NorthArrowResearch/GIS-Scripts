@@ -25,7 +25,8 @@ The following metric calculation methodologies should therefore be interpreted b
 
 The cross section length is the total length of the cross section line from the first point to the last. This value is the horizontal length and ignores elevation changes. It also ignores wet and dry patches.
 
-* Data type is single
+* Data type is single.
+* Units are metres.
 * Minimum value is zero.
 * No maximum value.
 
@@ -36,6 +37,7 @@ This is the length of the cross section that passes over dry patches in the chan
 The dry length is the sum of all dry patches. It represents the horizontal length and ignores elevation changes.
 
 * Data type is single.
+* Units are metres.
 * Minimum value is zero.
 * No maximum value.
 
@@ -44,6 +46,7 @@ The dry length is the sum of all dry patches. It represents the horizontal lengt
 This is the width of the channel that is within the channel polygon and not within a dry patch (island). It is the sum of the "wet" parts of the cross section. It represents the horizontal length and ignores elevation.
 
 - Data type is single.
+- Units are metres.
 - Minimum value is zero.
 - No maximum value.
 
@@ -56,10 +59,40 @@ The max depth of the cross section represents the lowest point along the cross s
 Where:
 
 * `IPoint1Elev` = the absolute elevation of the point  where the start of the cross section touches the channel polygon.
-* IPoint2Elev = the absolute elevation of the point where the end of the cross section touches the channel polygon.
-* StationElev = the list of absolute elevations at user-specified increments along the cross section line.
+* `IPoint2Elev` = the absolute elevation of the point where the end of the cross section touches the channel polygon.
+* `StationElev` = the list of absolute elevations at user-specified increments along the cross section line.
+
+
+* Data type is single.
+* Units are metres.
+* Minimum value is 0.
+* No maximum value.
+
+
+
+## Mean Depth (`MeanDepth`)
+
+The mean depth is the average of all *positive* depths measured at user-defined intervals along the cross section. This ignores stations along the cross section where the elevation is greater than the water surface elevation, which is calculated as the average of the elevations where the cross section intersects the channel polygon. In other words, the mean depth ignores islands and other dry patches, but it does include stations that have zero depth.
+
+`MeanDepth = Sum(IPositivePointElev) / Count(IPositivePointElev)`
+
+Where:
+
+* `IPositivePointElev` is the list of elevations that are less than the average elevation of the end points of the cross section line.
 
 ## Width to Max Depth Ratio (`W2MxDepth`)
+
+The ratio of the total cross section length divided by the max depth.
+
+`W2MxDepth = XSLength / MaxDepth`
+
+Where:
+
+* Data typ: single.
+* Units: None
+* Minimum value: 0
+* No maximum value.
+* W2MxDepth is zero when either the MaxDepth or XSLength are undefined or zero. This is because ESRI ShapeFiles are incapable of storing *not a number* (NaN) or infinity.
 
 ## Width to Average Depth Ratio (`W2AvDepth`)
 
@@ -67,7 +100,7 @@ Where:
 
 ## 
 
-## Mean Depth (`MeanDepth`)
+## 
 
 ## Wetted Perimeter (`WetPerim`)
 
