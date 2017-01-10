@@ -1,5 +1,76 @@
 import math
+import json
+import os
+import ogr
 from shapely.geometry import *
+
+# --------------------------------------------------------
+# Load the Shapefiles we need
+# --------------------------------------------------------
+
+class Shapefile:
+
+    def __init__(self, sFilename=None):
+        self.driver = ogr.GetDriverByName("ESRI Shapefile")
+        if sFilename:
+            self.load(sFilename)
+
+    def load(self, sFilename):
+        dataSource = self.driver.Open(sFilename, 0)
+        self.layer = dataSource.GetLayer()
+        self.spatialRef = self.layer.GetSpatialRef()
+
+        self.getFieldDef()
+        self.getFeatures()
+
+    def create(self, sFilename, spatialRef=None, geoType=ogr.wkbMultiLineString):
+        if os.path.exists(sFilename):
+            self.driver.DeleteDataSource(sFilename)
+        self.datasource = self.driver.CreateDataSource(sFilename)
+        self.layer = self.datasource.CreateLayer(sFilename, spatialRef, geom_type=geoType)
+
+    def featuresToShapely(self):
+        if len(self.features) == 0:
+            return
+
+        feats = []
+        for feat in self.features:
+            featobj = json.loads(feat.ExportToJson())
+
+            fields = {}
+            for f in self.fields:
+                fields[f] = feat.GetField(f)
+
+            feats.append({
+                'geometry': shape(featobj['geometry']),
+                'fields': fields
+            })
+        return feats
+
+    def getFieldDef(self):
+        self.fields = {}
+        lyrDefn = self.layer.GetLayerDefn()
+        for i in range(lyrDefn.GetFieldCount()):
+            fieldName = lyrDefn.GetFieldDefn(i).GetName()
+            fieldTypeCode = lyrDefn.GetFieldDefn(i).GetType()
+            fieldType = lyrDefn.GetFieldDefn(i).GetFieldTypeName(fieldTypeCode)
+            fieldWidth = lyrDefn.GetFieldDefn(i).GetWidth()
+            GetPrecision = lyrDefn.GetFieldDefn(i).GetPrecision()
+
+            self.fields[fieldName] = {
+                'fieldName': fieldName,
+                'fieldTypeCode': fieldTypeCode,
+                'fieldType': fieldType,
+                'fieldWidth': fieldWidth,
+                'GetPrecision': GetPrecision
+            }
+
+    def getFeatures(self):
+
+        self.features = []
+        for feat in self.layer:
+            self.features.append(feat)
+
 
 class RiverPoint:
 
