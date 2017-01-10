@@ -14,7 +14,7 @@ def crosssections(args):
 
     You can use the following paths in this repo:
 
-    "sample/WettedExtent.shp" "sample/Islands.shp" "output/centerline.shp" "output/DEM.tif" "output/crosssections.shp"
+    "../sampledata/Visit_2425/WettedExtent.shp" "../sampledata/Visit_2425/Islands.shp" "../sampledata/outputs/centerline.shp" "../sampledata/Visit_2425/DEM.tif" "../sampledata/outputs/crosssections.shp"
 
     :param args:
     :return:
@@ -139,7 +139,7 @@ def crosssections(args):
     # --------------------------------------------------------
     # Metric Calculation
     # --------------------------------------------------------
-    calcMetrics(rivershape, args.DEM.name)
+    calcMetrics(valid, rivershape, args.dem.name)
 
 
     # --------------------------------------------------------
