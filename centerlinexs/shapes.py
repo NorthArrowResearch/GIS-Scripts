@@ -146,6 +146,29 @@ def getExtrapoledLine(line, length):
 
     return LineString([p2, (newX, newY)])
 
+def reconnectLine(baseline, separateLine):
+    """
+    Smoothing can separate the centerline from its alternates. This function
+    reconnects them using nearest point projection. Do this before smoothing the
+    alternate line
+    :param baseline: The main line that does not change
+    :param separateLine: The line we want to reconnect
+    :return:
+    """
+    # First find the start and end point
+    sepLineStart = Point(separateLine.coords[0])
+    sepLineEnd = Point(separateLine.coords[-1])
+
+    # Now find their nearest points on the centerline
+    newStart = baseline.interpolate(baseline.project(sepLineStart))
+    newEnd = baseline.interpolate(baseline.project(sepLineEnd))
+
+    line = list(separateLine.coords)
+    line.insert(0, newStart)
+    line.append(newEnd)
+
+    return LineString(line)
+
 def splitClockwise(rect, thalweg):
     """
     Work clockwise around a rectangle and create two shapes that represent left and right bank

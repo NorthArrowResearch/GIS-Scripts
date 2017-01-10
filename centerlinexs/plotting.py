@@ -1,7 +1,7 @@
 # These are for graphic only
 import matplotlib.pyplot as plt
 from shapely.geometry import *
-from matplotlib.collections import PatchCollection
+from matplotlib.collections import PolyCollection
 from descartes import PolygonPatch
 
 class Plotter:
@@ -33,16 +33,17 @@ class Plotter:
                 x, y = p.xy
                 self.ax.plot(x, y, color=color, alpha=alpha, markersize=2, marker="o", zorder=zord)
 
+
         elif mp.type == 'MultiLineString':
             for idx, p in enumerate(mp):
                 x, y = p.xy
                 self.ax.plot(x, y, color=color, alpha=alpha, linewidth=1, solid_capstyle='round', zorder=zord)
 
         elif mp.type == 'MultiPolygon':
-            patches = []
-            for idx, p in enumerate(mp):
-                patches.append(PolygonPatch(p, fc=color, ec='#000000', lw=0.2, alpha=alpha, zorder=zord))
-                self.ax.add_collection(PatchCollection(patches, match_original=True))
+            coll = PolyCollection(list([tuple(p.exterior.coords) for p in mp]), facecolors=color, edgecolors='#000000', linewidths=0.5)
+            coll.set_alpha(alpha)
+            coll.set_zorder(0.2)
+            self.ax.add_collection(coll)
 
     @staticmethod
     def showPlot(bounds=None):

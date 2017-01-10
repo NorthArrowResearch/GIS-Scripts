@@ -113,6 +113,10 @@ def centerline(args):
     centerline = myVorL.collectCenterLines()
     centerlineSmooth = linespliner.smooth(centerline)
 
+    # Trim to be inside the river shape.
+    # TODO: Is this dangerous? Maybe.... Might want to do a bit of testing
+    centerlineSmooth = centerlineSmooth.intersection(rivershape)
+
     # Now we've got the main centerline let's flip the islands one by one
     # and get alternate lines
     alternateLines = []
@@ -122,8 +126,16 @@ def centerline(args):
         if altLine.type == "LineString":
             # We difference the alternate lines with the main line
             # to get just the bit that is different
-            smoothAlt = linespliner.smooth(altLine.difference(centerline))
-            alternateLines.append(smoothAlt)
+            diffaltline = altLine.difference(centerline)
+
+            # Now smooth this line to be roughly the consistency of skippy peanut butter
+            smoothAlt = linespliner.smooth(diffaltline)
+
+            # Now we reconnect the bit that is different with the smoothed
+            # Segment since smoothing can mess up the intersection
+            reconLine = reconnectLine(centerlineSmooth, smoothAlt)
+
+            alternateLines.append(reconLine)
 
     # --------------------------------------------------------
     # Write the output Shapefile
@@ -167,7 +179,7 @@ def centerline(args):
         plt.plotShape(bankshapes[1], '#AAAABB', 1, 0)
 
         # The Voronoi shapes are light grey (really slow for some reason)
-        # plt.plotShape(myVorL.polys, '#444444', 0.1, 6)
+        plt.plotShape(myVorL.polys, '#444444', 0.1, 6)
 
         # The rivershape is slightly green
         plt.plotShape(rivershape, '#AACCAA', 0.4, 8)
@@ -178,7 +190,7 @@ def centerline(args):
         plt.plotShape(lineThalweg, '#00FF00', 1, 20)
 
         # The centerline we choose is bright red
-        plt.plotShape(centerline, '#660000', 0.6, 30)
+        # plt.plotShape(centerline, '#660000', 0.6, 30)
         plt.plotShape(centerlineSmooth, '#FF0000', 0.8, 30)
         # The alternate lines are in yellow
         plt.plotShape(MultiLineString(alternateLines), '#FFFF00', 0.8, 25)
