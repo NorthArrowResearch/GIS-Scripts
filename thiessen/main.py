@@ -7,6 +7,7 @@ from shapely.geometry import *
 # We wrote two little files with helper methods:
 from vor import NARVoronoi
 from shapes import *
+from geosmoothing import *
 
 # These are just for graphing
 import matplotlib.pyplot as plt
@@ -27,7 +28,7 @@ class River:
         spatialRef = dataSource.GetLayer().GetSpatialRef()
         riverjson = json.loads(dataSource.GetLayer().GetFeature(0).ExportToJson())['geometry']
 
-        rivershape = MultiPolygon([shape(riverjson)])
+        oldrivershape = MultiPolygon([shape(riverjson)])
 
         # We're assuming here that the thalweg only has one line segment
         dataSource = driver.Open(sThalweg, 0)
@@ -43,6 +44,18 @@ class River:
             if isl.GetField("Qualifying") == 1:
                 islandjson = json.loads(isl.ExportToJson())['geometry']
                 islands.append(Polygon(shape(islandjson)))
+
+
+        # --------------------------------------------------------
+        # Make a new rivershape using the exterior and only
+        # qualifying islands from that shapefile
+        # --------------------------------------------------------
+
+        rivershape = Polygon(oldrivershape[0].exterior).difference(MultiPolygon(islands))
+        smoothing = GeoSmoothing()
+        smoothRiver = smoothing.smooth(rivershape)
+        smoothRiver = smoothRiver.simplify(0.02)
+
 
         # --------------------------------------------------------
         # Find the centerline
@@ -73,17 +86,16 @@ class River:
         # Add all the points (including islands) to the list
         points = []
 
-        for pol in rivershape:
-            # Exterior is the shell and there is only ever 1
-            for pt in list(pol.exterior.coords):
-                side = 1 if bankshapes[0].contains(Point(pt)) else -1
-                points.append(RiverPoint(pt, interior=False, side=side))
+        # Exterior is the shell and there is only ever 1
+        for pt in list(smoothRiver.exterior.coords):
+            side = 1 if bankshapes[0].contains(Point(pt)) else -1
+            points.append(RiverPoint(pt, interior=False, side=side))
 
-            # NOTE: We ignore interiors and use the islands shapefile instead
-            for idx, island in enumerate(islands):
-                for pt in list(island.exterior.coords):
-                    side = 1 if bankshapes[0].contains(Point(pt)) else -1
-                    points.append(RiverPoint(pt, interior=True, side=side, island=idx))
+        # NOTE: We ignore interiors and use the islands shapefile instead
+        for idx, island in enumerate(smoothRiver.interiors):
+            for pt in list(island.coords):
+                side = 1 if bankshapes[0].contains(Point(pt)) else -1
+                points.append(RiverPoint(pt, interior=True, side=side, island=idx))
 
         # Here's where the Voronoi polygons come into play
         myVorL = NARVoronoi(points)
@@ -93,16 +105,21 @@ class River:
 
         # This is the function that does the actual work of creating the centerline
         centerline = myVorL.collectCenterLines()
+        centerlineSmooth = smoothing.smooth(centerline)
+
+        print len(centerline.coords)
+        print len(centerlineSmooth.coords)
 
         # Now we've got the main centerline let's flip the islands one by one
         # and get alternate lines
         alternateLines = []
-        for idx, island in enumerate(islands):
+        for idx, island in enumerate(smoothRiver.interiors):
             altLine = myVorL.collectCenterLines(flipIsland=idx)
             if altLine.type == "LineString":
                 # We difference the alternate lines with the main line
                 # to get just the bit that is different
-                alternateLines.append(altLine.difference(centerline))
+                smoothAlt = smoothing.smooth(altLine.difference(centerline))
+                alternateLines.append(smoothAlt)
 
 
         # --------------------------------------------------------
@@ -120,7 +137,7 @@ class River:
         featureDefn = outLayer.GetLayerDefn()
         # The main centerline gets written first
         outFeature = ogr.Feature(featureDefn)
-        ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerline)))
+        ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerlineSmooth)))
         outFeature.SetGeometry(ogrmultiline)
         outFeature.SetField('main', 'yes')
         outLayer.CreateFeature(outFeature)
@@ -151,13 +168,14 @@ class River:
 
         # The rivershape is slightly green
         plotShape(ax, rivershape, '#AACCAA', 0.4, 8)
+        plotShape(ax, smoothRiver, '#AAAACC', 0.4, 8)
 
         # Thalweg is green and where it extends to the bounding rectangle is orange
         plotShape(ax, newThalweg, '#FFA500', 1, 15)
         plotShape(ax, thalweg, '#00FF00', 1, 20)
 
         # The centerline we choose is bright red
-        plotShape(ax, centerline, '#FF0000', 0.8, 30)
+        plotShape(ax, centerlineSmooth, '#FF0000', 0.8, 30)
         # The alternate lines are in yellow
         plotShape(ax, MultiLineString(alternateLines), '#FFFF00', 0.8, 25)
 

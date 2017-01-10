@@ -15,7 +15,7 @@ class NARVoronoi:
         The init method is where all the Voronoi magic happens.
         :param points:
         """
-        #  The centroid is what we're going to use to shift all the coords around
+        # The centroid is what we're going to use to shift all the coords around
         self.points = points
         self.centroid = MultiPoint([x.point for x in points]).centroid.coords[0]
 
@@ -61,7 +61,7 @@ class NARVoronoi:
         :return: LineString (Valid) or MultiLineString (invalid)
         """
 
-        # The first loop here assigns each polygon to either left or right side of the channel based on the
+        # The first loop here asigns each polygon to either left or right side of the channel based on the
         # self.point object we passed in earlier.
         regions = []
         for idx, reg in enumerate(self.region_neighbour):
@@ -114,6 +114,8 @@ class NARVoronoi:
         polys = []
         for region in self.regions:
             if len(region) >= 3:
-                polys.append(Polygon([self.vertices[ptidx] for ptidx in region if ptidx >=0]))
+                regionVerts = [self.vertices[ptidx] for ptidx in region if ptidx >= 0]
+                if len(regionVerts) >= 3:
+                    polys.append(Polygon(regionVerts))
         self.polys = MultiPolygon(polys)
 
