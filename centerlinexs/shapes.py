@@ -164,8 +164,8 @@ def reconnectLine(baseline, separateLine):
     newEnd = baseline.interpolate(baseline.project(sepLineEnd))
 
     line = list(separateLine.coords)
-    line.insert(0, newStart)
-    line.append(newEnd)
+    line.insert(0, tuple(newStart.coords[0]))
+    line.append(tuple(newEnd.coords[0]))
 
     return LineString(line)
 

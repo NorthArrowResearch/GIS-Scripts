@@ -61,7 +61,7 @@ class Raster:
         # Only works for geotransforms with no rotation.
         px = int((pt[0] - self.left) / self.cellWidth)  # x pixel
         py = int((pt[1] - self.top) / self.cellHeight)  # y pixel
-        val = self.array[px, py]
+        val = self.array[py, px]
         if isclose(val, self.nodata, rel_tol=1e-07):
             return
 

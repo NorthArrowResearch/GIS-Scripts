@@ -117,6 +117,13 @@ def crosssections(args):
     # Valid/invalid line testing
     # --------------------------------------------------------
     log.info("Testin XSs for Validity...")
+
+    class XSObj:
+
+        def __init__(self, geometry):
+            self.geometry = geometry
+            self.metrics = {}
+
     valid = []
     invalid = []
     for xsgroup in allxslines:
@@ -129,17 +136,21 @@ def crosssections(args):
         # Test each cross section for validity.
         # TODO: Right now it's just stddev test. There should probably be others
         for xs in xsgroup:
+
+            xsobj = XSObj(xs)
+
             if xs.length > (mean + 4 * stdev):
-                groupvalid.append(xs)
+                groupvalid.append(xsobj)
             else:
-                groupinvalid.append(xs)
+                groupinvalid.append(xsobj)
+
         valid.append(groupvalid)
         valid.append(groupinvalid)
 
     # --------------------------------------------------------
     # Metric Calculation
     # --------------------------------------------------------
-    calcMetrics(valid, rivershape, args.dem.name)
+    calcMetrics(valid, polyRiverShape, args.dem.name)
 
 
     # --------------------------------------------------------
@@ -186,10 +197,10 @@ def crosssections(args):
 
         # The valid crosssections are blue
         for g in valid:
-            plt.plotShape(MultiLineString(g), '#0000FF', 0.7, 25)
+            plt.plotShape(MultiLineString([geo.geometry for geo in g]), '#0000FF', 0.7, 25)
         # Invalid crosssections are orange
         for g in invalid:
-            plt.plotShape(MultiLineString(g), '#00FF00', 0.7, 20)
+            plt.plotShape(MultiLineString([geo.geometry for geo in g]), '#00FF00', 0.7, 20)
 
         plt.showPlot(rivershape.bounds)
 
