@@ -145,7 +145,11 @@ def centerline(args):
     outShape = Shapefile()
     outShape.create(args.centerline, rivershp.spatialRef, geoType=ogr.wkbMultiLineString)
 
-    outShape.layer.CreateField(ogr.FieldDefn('main', ogr.OFTString))
+    outShape.layer.CreateField(ogr.FieldDefn('Channel', ogr.OFTString))
+
+    # ShapeFiles must have an ID field
+    field_defn = ogr.FieldDefn('ID', ogr.OFTInteger)
+    outShape.layer.CreateField(field_defn)
 
     featureDefn = outShape.layer.GetLayerDefn()
 
@@ -153,7 +157,9 @@ def centerline(args):
     outFeature = ogr.Feature(featureDefn)
     ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerlineSmooth)))
     outFeature.SetGeometry(ogrmultiline)
-    outFeature.SetField('main', 'yes')
+    outFeature.SetField('Channel', 'Main')
+    featureID = 1
+    outFeature.SetField('ID', featureID)
     outShape.layer.CreateFeature(outFeature)
 
     # We do all this again for each alternate line
@@ -161,7 +167,9 @@ def centerline(args):
         newfeat = ogr.Feature(featureDefn)
         linething = ogr.CreateGeometryFromJson(json.dumps(mapping(altline)))
         newfeat.SetGeometry(linething)
-        newfeat.SetField('main', 'no')
+        newfeat.SetField('Channel', 'Side')
+        featureID += 1
+        newfeat.SetField('ID', featureID)
         outShape.layer.CreateFeature(newfeat)
 
     # --------------------------------------------------------
