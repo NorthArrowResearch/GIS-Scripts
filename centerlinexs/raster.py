@@ -63,7 +63,7 @@ class Raster:
         py = int((pt[1] - self.top) / self.cellHeight)  # y pixel
         val = self.array[py, px]
         if isclose(val, self.nodata, rel_tol=1e-07):
-            return
+            return np.nan
 
         return val
 

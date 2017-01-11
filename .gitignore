@@ -59,6 +59,8 @@ target/
 
 # Sensitive or high-churn files:
 .idea/dataSources.ids
+.idea/misc.xml
+.idea/*.iml
 .idea/dataSources.xml
 .idea/dataSources.local.xml
 .idea/sqlDataSources.xml
