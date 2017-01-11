@@ -120,38 +120,31 @@ def crosssections(args):
 
     class XSObj:
 
-        def __init__(self, geometry):
+        def __init__(self, centerlineID, geometry, isValid):
+            self.centerlineID = centerlineID
             self.geometry = geometry
             self.metrics = {}
+            self.valid = isValid
 
-    valid = []
-    invalid = []
+    xsObjList = []
     for xsgroup in allxslines:
-        groupvalid = []
-        groupinvalid = []
+
         lengths = [xs.length for xs in xsgroup]
         stdev = np.std(lengths)
         mean = np.mean(lengths)
 
         # Test each cross section for validity.
         # TODO: Right now it's just stddev test. There should probably be others
-        for xs in xsgroup:
+        for idx, xs in enumerate(xsgroup):
 
-            xsobj = XSObj(xs)
-
-            if xs.length > (mean + 4 * stdev):
-                groupvalid.append(xsobj)
-            else:
-                groupinvalid.append(xsobj)
-
-        valid.append(groupvalid)
-        valid.append(groupinvalid)
+            isValid =  xs.length > (mean + 4 * stdev)
+            xsobj = XSObj(idx, xs, isValid)
+            xsObjList.append(xsobj)
 
     # --------------------------------------------------------
     # Metric Calculation
     # --------------------------------------------------------
-    calcMetrics(valid, polyRiverShape, args.dem.name)
-
+    calcMetrics(xsObjList, polyRiverShape, args.dem.name)
 
     # --------------------------------------------------------
     # Write the output Shapefile
@@ -159,24 +152,36 @@ def crosssections(args):
     # TODO: I'd love to abstract all this away but it's a pain to do this in a generic way
     log.info("Writing Shapefiles...")
     outShape = Shapefile()
-    outShape.create(args.crosssections, rivershp.spatialRef, geoType=ogr.wkbMultiLineString)
+    outShape.create(args.crosssections, rivershp.spatialRef, geoType=ogr.wkbLineString)
 
-    # quick and dirty write all xs to shapefile
-    exportlines = []
-    for g in allxslines:
-        for xs in g:
-            exportlines.append(xs)
-
-    ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(MultiLineString(exportlines))))
+    featureDefn = outShape.layer.GetLayerDefn()
+    outFeature = ogr.Feature(featureDefn)
 
     idField = ogr.FieldDefn('name', ogr.OFTString)
     outShape.layer.CreateField(idField)
 
-    featureDefn = outShape.layer.GetLayerDefn()
-    outFeature = ogr.Feature(featureDefn)
-    outFeature.SetGeometry(ogrmultiline)
-    outFeature.SetField('name', ogr.OFTString)
-    outShape.layer.CreateFeature(outFeature)
+    # for metricName, metricValue in xsObjList[0].metrics.iteritems():
+    #     if featureDefn.GetFieldIndex(metricName) < 0:
+    #         aField = ogr.FieldDefn(metricName, ogr.OFTReal)
+    #         outShape.layer.CreateField(aField)
+
+
+    for xs in xsObjList:
+
+        ogrLine = ogr.CreateGeometryFromJson(json.dumps(mapping(xs.geometry)))
+        outFeature.SetGeometry(ogrLine)
+        outFeature.SetField('name', ogr.OFTString)
+
+        for metricName, metricValue in xs.metrics.iteritems():
+            print "{0} = {1}".format(metricName, metricValue)
+
+            if featureDefn.GetFieldIndex(metricName) < 0:
+                aField = ogr.FieldDefn(metricName, ogr.OFTReal)
+                outShape.layer.CreateField(aField)
+
+            outFeature.SetField(metricName, metricValue)
+
+        outShape.layer.CreateFeature(outFeature)
 
     # --------------------------------------------------------
     # Do a little show and tell with plotting and whatnot
@@ -196,11 +201,11 @@ def crosssections(args):
         plt.plotShape(MultiLineString(throwaway), '#FF0000', 0.1, 20)
 
         # The valid crosssections are blue
-        for g in valid:
-            plt.plotShape(MultiLineString([geo.geometry for geo in g]), '#0000FF', 0.7, 25)
+        for g in xsObjList:
+            plt.plotShape(MultiLineString([geo.geometry for geo in g if geo.isValid]), '#0000FF', 0.7, 25)
         # Invalid crosssections are orange
-        for g in invalid:
-            plt.plotShape(MultiLineString([geo.geometry for geo in g]), '#00FF00', 0.7, 20)
+        for g in xsObjList:
+            plt.plotShape(MultiLineString([geo.geometry for geo in g if not geo.isValid]), '#00FF00', 0.7, 20)
 
         plt.showPlot(rivershape.bounds)
 

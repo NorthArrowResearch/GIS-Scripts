@@ -1,6 +1,6 @@
 # Utility functions we need
 import unittest
-
+import numpy as np
 
 class TestRasterClass(unittest.TestCase):
     """
@@ -61,7 +61,21 @@ class TestMetricClass(unittest.TestCase):
 
     def test_meanDepth(self):
         from metrics import meanDepth
-        self.assertTrue(False)
+
+        depthValues = [1, 2, 3, 4, 5]
+
+        fValue = meanDepth(depthValues)
+        self.assertEqual(fValue, 3)
+
+        depthValues = [np.nan, 2, 3, 4, 5]
+        depthValuesma = np.ma.masked_invalid(depthValues)
+        fValue = meanDepth(depthValuesma)
+        self.assertEqual(fValue, 3.5)
+
+        depthValues = [np.nan, np.nan, np.nan, np.nan, np.nan]
+        depthValuesma = np.ma.masked_invalid(depthValues)
+        fValue = meanDepth(depthValuesma)
+        self.assertEqual(fValue, 0)
 
     def test_maxDepth(self):
         from metrics import maxDepth
@@ -70,6 +84,19 @@ class TestMetricClass(unittest.TestCase):
     def test_getRefElev(self):
         from metrics import getRefElev
         self.assertTrue(False)
+
+
+    # end point on XS when XS is not precise multiple of station distance
+    # An idea for this test is get the original line length and compare with
+    # the array size multiplied by the station interval
+
+    # Figure out how to handle cross sections with no data parts
+
+    # Which width to use for ratios... is it wetted width or total length
+
+    # Write the attributes to the shapefile
+
+
 
 class TestVoronoiClass(unittest.TestCase):
 
