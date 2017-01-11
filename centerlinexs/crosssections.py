@@ -155,25 +155,13 @@ def crosssections(args):
     outShape.create(args.crosssections, rivershp.spatialRef, geoType=ogr.wkbLineString)
 
     featureDefn = outShape.layer.GetLayerDefn()
-    outFeature = ogr.Feature(featureDefn)
 
-    idField = ogr.FieldDefn('name', ogr.OFTString)
-    outShape.layer.CreateField(idField)
-
-    # for metricName, metricValue in xsObjList[0].metrics.iteritems():
-    #     if featureDefn.GetFieldIndex(metricName) < 0:
-    #         aField = ogr.FieldDefn(metricName, ogr.OFTReal)
-    #         outShape.layer.CreateField(aField)
-
-
-    for xs in xsObjList:
-
+    for idx, xs in enumerate(xsObjList):
+        outFeature = ogr.Feature(featureDefn)
         ogrLine = ogr.CreateGeometryFromJson(json.dumps(mapping(xs.geometry)))
         outFeature.SetGeometry(ogrLine)
-        outFeature.SetField('name', ogr.OFTString)
 
         for metricName, metricValue in xs.metrics.iteritems():
-            print "{0} = {1}".format(metricName, metricValue)
 
             if featureDefn.GetFieldIndex(metricName) < 0:
                 aField = ogr.FieldDefn(metricName, ogr.OFTReal)
@@ -182,6 +170,7 @@ def crosssections(args):
             outFeature.SetField(metricName, metricValue)
 
         outShape.layer.CreateFeature(outFeature)
+
 
     # --------------------------------------------------------
     # Do a little show and tell with plotting and whatnot
@@ -202,10 +191,10 @@ def crosssections(args):
 
         # The valid crosssections are blue
         for g in xsObjList:
-            plt.plotShape(MultiLineString([geo.geometry for geo in g if geo.isValid]), '#0000FF', 0.7, 25)
+            plt.plotShape(g.geometry, '#0000FF', 0.7, 25)
         # Invalid crosssections are orange
         for g in xsObjList:
-            plt.plotShape(MultiLineString([geo.geometry for geo in g if not geo.isValid]), '#00FF00', 0.7, 20)
+            plt.plotShape(g.geometry, '#00FF00', 0.7, 20)
 
         plt.showPlot(rivershape.bounds)
 
