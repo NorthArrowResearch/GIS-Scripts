@@ -48,10 +48,14 @@ def crosssections(args):
     diag = getDiag(rivershape)
     allxslines = []
     throwaway = []
+    mainChannelID = -1
 
     for line in centerlines:
         linexs = []
         linegeo = line['geometry']
+
+        if line.fields["Channel"] == "Main":
+            mainChannelID = line.fields["ID"]
 
         # Get 50cm spaced points
         points = [linegeo.interpolate(currDist) for currDist in np.arange(0, linegeo.length, 0.5)]
@@ -101,7 +105,7 @@ def crosssections(args):
                         keep = False
                     # If this is not the main channel and our cross section touches the exterior wall in
                     # more than one place then lose it
-                    if line['fields']['main'] == "no":
+                    if line['fields']['Channel'] == "Main":
                         dista = Point(xs.coords[0]).distance(rivershape.exterior)
                         distb = Point(xs.coords[1]).distance(rivershape.exterior)
                         if dista < 0.001 and distb < 0.001:
@@ -120,11 +124,12 @@ def crosssections(args):
 
     class XSObj:
 
-        def __init__(self, centerlineID, geometry, isValid):
+        def __init__(self, centerlineID, geometry, isValid, isMain):
             self.centerlineID = centerlineID
             self.geometry = geometry
             self.metrics = {}
             self.valid = isValid
+            self.isMain = isMain
 
     xsObjList = []
     for xsgroup in allxslines:
