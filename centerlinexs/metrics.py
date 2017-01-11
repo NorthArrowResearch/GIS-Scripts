@@ -38,12 +38,12 @@ def calcMetrics(xsobjList, rivershapeWithDonuts, sDEM, fStationInterval = 0.5):
         # if xs.metrics["MaxDepth"] == 0.0:
         #     xs.metrics["W2MxDepth"] = 0
         # else:
-        #     xs.metrics["W2MxDepth"] = xs.metrics["XSLength"] / xs.metrics["MaxDepth"]
+        #     xs.metrics["W2MxDepth"] = xs.metrics["WetWidth"] / xs.metrics["MaxDepth"]
         #
         # if xs.metrics["MeanDepth"] == 0.0:
         #     xs.metrics["W2AvDepth"] = 0
         # else:
-        #     xs.metrics["W2AvDepth"] = xs.metrics["XSLength"] / xs.metrics["MeanDepth"]
+        #     xs.metrics["W2AvDepth"] = xs.metrics["WetWidth"] / xs.metrics["MeanDepth"]
 
 def getRefElev(arr):
     """

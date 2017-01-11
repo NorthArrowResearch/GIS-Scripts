@@ -82,7 +82,7 @@ Where:
 
 ## Width to Max Depth Ratio (`W2MxDepth`)
 
-The ratio of the total cross section length divided by the max depth.
+The ratio of the wetted width divided by the max depth.
 
 `W2MxDepth = XSLength / MaxDepth`
 
@@ -93,8 +93,25 @@ Where:
 * Minimum value: 0
 * No maximum value.
 * W2MxDepth is zero when either the MaxDepth or XSLength are undefined or zero. This is because ESRI ShapeFiles are incapable of storing *not a number* (NaN) or infinity.
+* Notes:
+	* The old CHaMP code definitely uses wetted width (and not not cross section length) as the numerator for this ratio.
 
 ## Width to Average Depth Ratio (`W2AvDepth`)
+
+The ratio of the wetted width divided by the mean depth.
+
+`W2AvDepth = XSLength / MeanDepth`
+
+Where:
+
+* Data typ: single.
+* Units: None
+* Minimum value: 0
+* No maximum value.
+* W2AvDepth is zero when either the MeanDepth or XSLength are undefined or zero. This is because ESRI ShapeFiles are incapable of storing *not a number* (NaN) or infinity.
+* Notes:
+	* The old CHaMP code definitely uses wetted width (and not not cross section length) as the numerator for this ratio.
+
 
 ## 
 
