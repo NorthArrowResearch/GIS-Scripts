@@ -156,10 +156,14 @@ def crosssections(args):
 
     featureDefn = outShape.layer.GetLayerDefn()
 
+    field_defn = ogr.FieldDefn('ID', ogr.OFTInteger)
+    outShape.layer.CreateField(field_defn)
+
     for idx, xs in enumerate(xsObjList):
         outFeature = ogr.Feature(featureDefn)
         ogrLine = ogr.CreateGeometryFromJson(json.dumps(mapping(xs.geometry)))
         outFeature.SetGeometry(ogrLine)
+        outFeature.SetField("ID", idx)
 
         for metricName, metricValue in xs.metrics.iteritems():
 
