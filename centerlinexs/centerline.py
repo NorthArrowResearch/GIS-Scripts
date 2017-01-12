@@ -111,6 +111,7 @@ def centerline(args):
     log.info("Spline Smoothing Main Line...")
     linespliner = GeoSmoothing(spl_smpar=LINE_SPL_SMPAR)
     centerline = myVorL.collectCenterLines()
+
     centerlineSmooth = linespliner.smooth(centerline)
 
     # Trim to be inside the river shape.
@@ -145,21 +146,17 @@ def centerline(args):
     outShape = Shapefile()
     outShape.create(args.centerline, rivershp.spatialRef, geoType=ogr.wkbMultiLineString)
 
-    outShape.layer.CreateField(ogr.FieldDefn('Channel', ogr.OFTString))
-
-    # ShapeFiles must have an ID field
-    field_defn = ogr.FieldDefn('ID', ogr.OFTInteger)
-    outShape.layer.CreateField(field_defn)
-
-    featureDefn = outShape.layer.GetLayerDefn()
+    outShape.createField("ID", ogr.OFTInteger)
+    outShape.createField("Channel", ogr.OFTString)
 
     # The main centerline gets written first
+    featureDefn = outShape.layer.GetLayerDefn()
     outFeature = ogr.Feature(featureDefn)
     ogrmultiline = ogr.CreateGeometryFromJson(json.dumps(mapping(centerlineSmooth)))
     outFeature.SetGeometry(ogrmultiline)
-    outFeature.SetField('Channel', 'Main')
     featureID = 1
     outFeature.SetField('ID', featureID)
+    outFeature.SetField('Channel', 'Main')
     outShape.layer.CreateFeature(outFeature)
 
     # We do all this again for each alternate line
@@ -167,9 +164,9 @@ def centerline(args):
         newfeat = ogr.Feature(featureDefn)
         linething = ogr.CreateGeometryFromJson(json.dumps(mapping(altline)))
         newfeat.SetGeometry(linething)
-        newfeat.SetField('Channel', 'Side')
         featureID += 1
         newfeat.SetField('ID', featureID)
+        newfeat.SetField('Channel', 'Side')
         outShape.layer.CreateFeature(newfeat)
 
     # --------------------------------------------------------
