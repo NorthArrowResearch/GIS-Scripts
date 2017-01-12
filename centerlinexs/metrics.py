@@ -23,27 +23,48 @@ def calcMetrics(xsobjList, rivershapeWithDonuts, sDEM, fStationInterval = 0.5):
 
         # Get the reference Elevation from the edges
         refElev = getRefElev(arrMasked)
+
+        xsmXSLength = xs.geometry.length
+        xsmWetWidth = dryWidth(xs.geometry, rivershapeWithDonuts)
+        xsmDryWidth = xsmXSLength - xsmWetWidth
+
         if refElev == 0:
             xs.isValid = False
+            xsmMaxDepth = 0
+            xsmMeanDepth = 0
+            xsmW2MxDepth = 0
+            xsmW2AvDepth = 0
+        else:
+            # The depth array must be calculated
+            deptharr = refElev - arrMasked
 
-        # The depth array must be calculated
-        deptharr = refElev - arrMasked
+            xsmMaxDepth = maxDepth(deptharr)
+            xsmMeanDepth = meanDepth(deptharr)
 
-        xs.metrics["XSLength"] = xs.geometry.length
-        xs.metrics["WetWidth"] = dryWidth(xs.geometry, rivershapeWithDonuts)
-        # xs.metrics["DryWidth"] = xs.metrics["XSLength"] - xs.metrics["WetWidth"]
-        # xs.metrics["MaxDepth"] = maxDepth(arrMasked)
-        # xs.metrics["MeanDepth"] = meanDepth(deptharr)
-        #
-        # if xs.metrics["MaxDepth"] == 0.0:
-        #     xs.metrics["W2MxDepth"] = 0
-        # else:
-        #     xs.metrics["W2MxDepth"] = xs.metrics["WetWidth"] / xs.metrics["MaxDepth"]
-        #
-        # if xs.metrics["MeanDepth"] == 0.0:
-        #     xs.metrics["W2AvDepth"] = 0
-        # else:
-        #     xs.metrics["W2AvDepth"] = xs.metrics["WetWidth"] / xs.metrics["MeanDepth"]
+            xsmW2MxDepth = xsmWetWidth / xsmMaxDepth if not xsmMaxDepth == 0.0 else 0.0
+            xsmW2AvDepth = xsmWetWidth / xsmMeanDepth if not xsmMeanDepth == 0.0 else 0.0
+
+        # Make sure that everything has a value
+        xs.metrics = {
+            "XSLength": metricSanitize(xsmXSLength),
+            "WetWidth": metricSanitize(xsmWetWidth),
+            "DryWidth": metricSanitize(xsmDryWidth),
+            "MaxDepth": metricSanitize(xsmMaxDepth),
+            "MeanDepth": metricSanitize(xsmMeanDepth),
+            "W2MxDepth": metricSanitize(xsmW2MxDepth),
+            "W2AvDepth": metricSanitize(xsmW2AvDepth),
+        }
+
+def metricSanitize(metric):
+    """
+    This function does nothing more than prevent bad numbers
+    :param metric:
+    :return:
+    """
+    if metric is None or np.isnan(metric):
+        metric = 0.0
+    # We explicitly cast this to np.float (NOT np.float32 or np.float64 etc.) to keep ogr from breaking
+    return np.float(metric)
 
 def getRefElev(arr):
     """
@@ -53,10 +74,10 @@ def getRefElev(arr):
     """
     # TODO: What to do when the endpoints don't have depth?
     # WARNING: THIS MAY PRODUCE A DIVISION BY 0!!!!!
-
-    fValue = np.average(arr[0] + arr[-1]) / 2
     if arr.mask[0] or arr.mask[-1]:
         fValue = 0
+    else:
+        fValue = np.average(arr[0] + arr[-1]) / 2
 
     return fValue
 
@@ -66,8 +87,8 @@ def maxDepth(arr):
     :param arr:
     :return:
     """
-    refElev = np.average(arr[0] + arr[-1]) / 2
-    return refElev - min(arr)
+    # Note we don't need to worry about negative depths because we're using max
+    return max(arr)
 
 
 def meanDepth(deptharr):

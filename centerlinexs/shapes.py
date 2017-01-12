@@ -2,7 +2,11 @@ import math
 import json
 import os
 import ogr
+import numpy as np
+from logger import Logger
 from shapely.geometry import *
+
+ogr.UseExceptions()
 
 # --------------------------------------------------------
 # Load the Shapefiles we need
@@ -12,6 +16,8 @@ class Shapefile:
 
     def __init__(self, sFilename=None):
         self.driver = ogr.GetDriverByName("ESRI Shapefile")
+        self.log = Logger('Shapefile')
+        self.datasource = None
         if sFilename:
             self.load(sFilename)
 
@@ -26,8 +32,21 @@ class Shapefile:
     def create(self, sFilename, spatialRef=None, geoType=ogr.wkbMultiLineString):
         if os.path.exists(sFilename):
             self.driver.DeleteDataSource(sFilename)
+        self.driver = None
+        self.driver = ogr.GetDriverByName("ESRI Shapefile")
         self.datasource = self.driver.CreateDataSource(sFilename)
         self.layer = self.datasource.CreateLayer(sFilename, spatialRef, geom_type=geoType)
+
+    def createField(self, fieldName, ogrOFT):
+        """
+        Create a field on the layer
+        :param fieldName:
+        :param ogrOFT:
+        :return:
+        """
+        self.log.info("Creating field: {0}".format(fieldName))
+        aField = ogr.FieldDefn(fieldName, ogrOFT)
+        self.layer.CreateField(aField)
 
     def featuresToShapely(self):
         if len(self.features) == 0:
@@ -71,6 +90,9 @@ class Shapefile:
         for feat in self.layer:
             self.features.append(feat)
 
+    # def __del__(self):
+    #     if self.datasource.Destroy:
+    #         self.datasource.Destroy()
 
 class RiverPoint:
 
@@ -80,6 +102,53 @@ class RiverPoint:
         self.interior = interior
         self.island = island
 
+def createTangentialLine(dist, centerline, rivershape):
+
+    # TODO: This offset method for slope is a little problematic. Would be nice to find a better slope method using shapely
+    diag = getDiag(centerline)
+    point = centerline.interpolate(dist)
+
+    offset = centerline.interpolate(dist + 0.001)
+    slope = ((point.coords[0][1] - offset.coords[0][1]) /
+             (point.coords[0][0] - offset.coords[0][0]))
+
+    # Nothing to see here. Just linear algebra
+    # Make sure to handle the infinite slope case
+    if slope == 0:
+        m = 1
+        k = diag
+    else:
+        # Negative reciprocal is the perpendicular slope
+        m = np.reciprocal(slope) * -1
+        k = diag / math.sqrt(1 + math.pow(m, 2))
+
+    # Shoot lines out in both directions using +/- k
+    xsLong = LineString([(point.coords[0][0] - k, point.coords[0][1] - k * m),
+                         (point.coords[0][0] + k, point.coords[0][1] + k * m)])
+
+    if math.isnan(xsLong.coords[0][1]):
+        print list(xsLong.coords)
+
+    # intersect the long crossection with the rivershape and see what falls out.
+    intersections = rivershape.intersection(xsLong)
+    inlist = []
+    keepXs = []
+
+    # Now we have to choose what stays and what goes
+    if not intersections.is_empty:
+        if intersections.type == "LineString":
+            inlist = [intersections]
+        elif intersections.type == "MultiLineString":
+            inlist = list(intersections)
+
+        for xs in inlist:
+            keep = True
+            # Add only lines that contain the centerpoint
+            if xs.interpolate(xs.project(point)).distance(point) > 0.01:
+                keep = False
+            if keep:
+                keepXs.append(xs)
+    return keepXs
 
 def getBufferedBounds(shape, buffer):
     """

@@ -44,76 +44,40 @@ def crosssections(args):
     # Traverse the line(s)
     # --------------------------------------------------------
     log.info("Starting Centerline Traversal...")
-    # Longest possible line we use to extend our cross sections
-    diag = getDiag(rivershape)
-    allxslines = []
-    throwaway = []
-    mainChannelID = -1
 
+    class XSObj:
+        def __init__(self, centerlineID, geometry, isMain):
+            self.centerlineID = centerlineID
+            self.geometry = geometry
+            self.metrics = {}
+            self.isValid = False
+            self.isMain = isMain
+
+    allxslines = []
     for line in centerlines:
         linexs = []
         linegeo = line['geometry']
-
-        if line.fields["Channel"] == "Main":
-            mainChannelID = line.fields["ID"]
+        mainChannel = 'Channel' in line['fields'] and line['fields']['Channel'] == "Main"
+        channelID = line['fields']['ID']
 
         # Get 50cm spaced points
-        points = [linegeo.interpolate(currDist) for currDist in np.arange(0, linegeo.length, 0.5)]
+        for currDist in np.arange(0, linegeo.length, 0.5):
+            # Now create the cross sections with length = 2 * diag
+            xsgeos = createTangentialLine(currDist, linegeo, rivershape)
+            for xs in xsgeos:
+                keep = True
+                xsObj = XSObj(channelID, xs, mainChannel)
 
-        # TODO: This offset method for slope is a little problematic. Would be nice to find a better slope method using shapely
-        _offsetpts = [linegeo.interpolate(currDist+0.001) for currDist in np.arange(0, linegeo.length, 0.5)]
-        slopes = [((points[idx].coords[0][1] - _offsetpts[idx].coords[0][1]) /
-                   (points[idx].coords[0][0] - _offsetpts[idx].coords[0][0])) for idx, pt in enumerate(_offsetpts)]
-
-        # Now create the cross sections with length = 2 * diag
-        for ptidx, pt in enumerate(points):
-            slope = slopes[ptidx]
-
-            # Nothing to see here. Just linear algebra
-            # Make sure to handle the infinite slope case
-            if slope == 0:
-                m = 1
-                k = diag
-            else:
-                # Negative reciprocal is the perpendicular slope
-                m = np.reciprocal(slopes[ptidx]) * -1
-                k = diag / math.sqrt(1 + math.pow(m, 2))
-
-            # Shoot lines out in both directions using +/- k
-            xsLong = LineString([(pt.coords[0][0] - k, pt.coords[0][1] - k * m),
-                                      (pt.coords[0][0] + k, pt.coords[0][1] + k * m)])
-
-            if math.isnan(xsLong.coords[0][1]):
-                print list(xsLong.coords)
-
-            # Make a shape that is just the exterior shape and the qualifying islands
-
-            intersections = rivershape.intersection(xsLong)
-            inlist = []
-
-            # Intersections returns a number of object types. We need to deal with all the valid ones
-            if not intersections.is_empty:
-                if intersections.type == "LineString":
-                    inlist = [intersections]
-                elif intersections.type == "MultiLineString":
-                    inlist = list(intersections)
-
-                for xs in inlist:
-                    keep = True
-                    # Add only lines that contain the centerpoint
-                    if xs.interpolate(xs.project(pt)).distance(pt) > 0.01:
+                # If this is not the main channel and our cross section touches the exterior wall in
+                # more than one place then lose it
+                if not mainChannel:
+                    dista = Point(xs.coords[0]).distance(rivershape.exterior)
+                    distb = Point(xs.coords[1]).distance(rivershape.exterior)
+                    if dista < 0.001 and distb < 0.001:
                         keep = False
-                    # If this is not the main channel and our cross section touches the exterior wall in
-                    # more than one place then lose it
-                    if line['fields']['Channel'] == "Main":
-                        dista = Point(xs.coords[0]).distance(rivershape.exterior)
-                        distb = Point(xs.coords[1]).distance(rivershape.exterior)
-                        if dista < 0.001 and distb < 0.001:
-                            keep = False
-                    if keep:
-                        linexs.append(xs)
-                    else:
-                        throwaway.append(xs)
+
+                if keep:
+                    linexs.append(xsObj)
 
         allxslines.append(linexs)
 
@@ -122,34 +86,24 @@ def crosssections(args):
     # --------------------------------------------------------
     log.info("Testin XSs for Validity...")
 
-    class XSObj:
+    for linexs in allxslines:
 
-        def __init__(self, centerlineID, geometry, isValid, isMain):
-            self.centerlineID = centerlineID
-            self.geometry = geometry
-            self.metrics = {}
-            self.valid = isValid
-            self.isMain = isMain
-
-    xsObjList = []
-    for xsgroup in allxslines:
-
-        lengths = [xs.length for xs in xsgroup]
+        lengths = [xs.geometry.length for xs in linexs]
         stdev = np.std(lengths)
         mean = np.mean(lengths)
 
         # Test each cross section for validity.
         # TODO: Right now it's just stddev test. There should probably be others
-        for idx, xs in enumerate(xsgroup):
-
-            isValid =  xs.length > (mean + 4 * stdev)
-            xsobj = XSObj(idx, xs, isValid)
-            xsObjList.append(xsobj)
+        for idx, xsobj in enumerate(linexs):
+            isValid = not xsobj.geometry.length > (mean + 4 * stdev)
+            xsobj.isValid = isValid
 
     # --------------------------------------------------------
     # Metric Calculation
     # --------------------------------------------------------
-    calcMetrics(xsObjList, polyRiverShape, args.dem.name)
+    # Flatten the list
+    flatxsls = [xs for xslist in allxslines for xs in xslist]
+    calcMetrics(flatxsls, polyRiverShape, args.dem.name)
 
     # --------------------------------------------------------
     # Write the output Shapefile
@@ -159,27 +113,31 @@ def crosssections(args):
     outShape = Shapefile()
     outShape.create(args.crosssections, rivershp.spatialRef, geoType=ogr.wkbLineString)
 
-    featureDefn = outShape.layer.GetLayerDefn()
+    outShape.createField("ID", ogr.OFTInteger)
+    outShape.createField("isValid", ogr.OFTInteger)
 
-    field_defn = ogr.FieldDefn('ID', ogr.OFTInteger)
-    outShape.layer.CreateField(field_defn)
+    for metricName, metricValue in flatxsls[0].metrics.iteritems():
+        outShape.createField(metricName, ogr.OFTReal)
 
-    for idx, xs in enumerate(xsObjList):
+    for idx, xs in enumerate(flatxsls):
+        featureDefn = outShape.layer.GetLayerDefn()
         outFeature = ogr.Feature(featureDefn)
         ogrLine = ogr.CreateGeometryFromJson(json.dumps(mapping(xs.geometry)))
         outFeature.SetGeometry(ogrLine)
-        outFeature.SetField("ID", idx)
 
+        # Set some metadata fields
+        outFeature.SetField("ID", int(idx))
+        outFeature.SetField("isValid", int(xs.isValid))
+
+        # Now write all the metrics to a file
         for metricName, metricValue in xs.metrics.iteritems():
-
-            if featureDefn.GetFieldIndex(metricName) < 0:
-                aField = ogr.FieldDefn(metricName, ogr.OFTReal)
-                outShape.layer.CreateField(aField)
-
-            outFeature.SetField(metricName, metricValue)
+            try:
+                # print "{0} ==> {1}".format(metricName, metricValue)
+                outFeature.SetField(metricName, metricValue)
+            except NotImplementedError as e:
+                log.error("OGR SetField Error", e)
 
         outShape.layer.CreateFeature(outFeature)
-
 
     # --------------------------------------------------------
     # Do a little show and tell with plotting and whatnot
@@ -196,14 +154,14 @@ def crosssections(args):
             plt.plotShape(c['geometry'], '#000000', 0.5, 20)
 
         # Throwaway lines (the ones that are too whack to even test for validity) are faded red
-        plt.plotShape(MultiLineString(throwaway), '#FF0000', 0.1, 20)
+        # plt.plotShape(MultiLineString([g.geometry for g in throwaway]), '#FF0000', 0.1, 20)
 
         # The valid crosssections are blue
-        for g in xsObjList:
-            plt.plotShape(g.geometry, '#0000FF', 0.7, 25)
+        for geo in [g.geometry for g in flatxsls if g.isValid]:
+            plt.plotShape(geo, '#0000FF', 0.7, 25)
         # Invalid crosssections are orange
-        for g in xsObjList:
-            plt.plotShape(g.geometry, '#00FF00', 0.7, 20)
+        for geo in [g.geometry for g in flatxsls if not g.isValid]:
+            plt.plotShape(geo, '#00FF00', 0.7, 25)
 
         plt.showPlot(rivershape.bounds)
 
@@ -243,6 +201,7 @@ if __name__ == "__main__":
 
     try:
         crosssections(args)
+        log.info("Completed Successfully")
     except AssertionError as e:
         log.error("Assertion Error", e)
         sys.exit(0)

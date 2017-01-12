@@ -239,6 +239,7 @@ if __name__ == "__main__":
 
     try:
         centerline(args)
+        log.info("Completed Successfully")
     except AssertionError as e:
         log.error("Assertion Error", e)
         sys.exit(0)
