@@ -54,6 +54,7 @@ def crosssections(args):
             self.isMain = isMain
 
     allxslines = []
+    throwaway = []
     for line in centerlines:
         linexs = []
         linegeo = line['geometry']
@@ -63,7 +64,8 @@ def crosssections(args):
         # Get 50cm spaced points
         for currDist in np.arange(0, linegeo.length, 0.5):
             # Now create the cross sections with length = 2 * diag
-            xsgeos = createTangentialLine(currDist, linegeo, rivershape)
+            xsgeos, junk = createTangentialLine(currDist, linegeo, rivershape)
+            throwaway += junk
             for xs in xsgeos:
                 keep = True
                 xsObj = XSObj(channelID, xs, mainChannel)
@@ -78,6 +80,8 @@ def crosssections(args):
 
                 if keep:
                     linexs.append(xsObj)
+                else:
+                    throwaway.append(xs)
 
         allxslines.append(linexs)
 
@@ -147,23 +151,21 @@ def crosssections(args):
         plt = Plotter()
 
         # The shape of the river is grey (this is the one with only qualifying islands
-        plt.plotShape(rivershape, '#AAAAAA', 1, 5)
+        plt.plotShape(rivershape, '#CCCCCC', 0.5, 5, 'River Shape')
 
         # Centerline is black
-        for c in centerlines:
-            plt.plotShape(c['geometry'], '#000000', 0.5, 20)
-
-        # Throwaway lines (the ones that are too whack to even test for validity) are faded red
-        # plt.plotShape(MultiLineString([g.geometry for g in throwaway]), '#FF0000', 0.1, 20)
+        plt.plotShape(MultiLineString, '#000000', 0.5, 20, "Centerlines")
 
         # The valid crosssections are blue
-        for geo in [g.geometry for g in flatxsls if g.isValid]:
-            plt.plotShape(geo, '#0000FF', 0.7, 25)
-        # Invalid crosssections are orange
-        for geo in [g.geometry for g in flatxsls if not g.isValid]:
-            plt.plotShape(geo, '#00FF00', 0.7, 25)
+        plt.plotShape(MultiLineString([g.geometry for g in flatxsls if g.isValid]), '#0000FF', 0.7, 25, "Valid Cross Sections")
 
-        plt.showPlot(rivershape.bounds)
+        # Invalid crosssections are orange
+        plt.plotShape(MultiLineString([g.geometry for g in flatxsls if not g.isValid]), '#00FF00', 0.7, 25, "Invalid Cross Sections")
+
+        # Throwaway lines (the ones that are too whack to even test for validity) are faded red
+        plt.plotShape(MultiLineString(throwaway), '#FF0000', 0.3, 20, "Throwaway Lines (not stored)")
+
+        plt.showPlot(getBufferedBounds(rivershape, 10).bounds)
 
 
 if __name__ == "__main__":

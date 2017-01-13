@@ -10,7 +10,7 @@ class Plotter:
         self.fig = plt.figure(1, figsize=(10, 10))
         self.ax = self.fig.gca()
 
-    def plotShape(self, mp, color, alpha, zord):
+    def plotShape(self, mp, color, alpha, zord, label=None):
         """
         Nothing fancy here. Just a plotting function to help us visualize
         :param ax:
@@ -22,25 +22,27 @@ class Plotter:
         """
         # We're using Descartes here for polygonpathc
         if mp.type == 'Polygon':
-            self.ax.add_patch(PolygonPatch(mp, fc=color, ec='#000000', lw=0.2, alpha=alpha, zorder=zord))
+            self.ax.add_patch(PolygonPatch(mp, fc=color, ec='#000000', lw=0.2, alpha=alpha, zorder=zord, label=label))
 
         elif mp.type == 'LineString':
             x, y = mp.xy
-            self.ax.plot(x, y, color=color, alpha=alpha, linewidth=1, solid_capstyle='round', zorder=zord)
+            self.ax.plot(x, y, color=color, alpha=alpha, linewidth=1, solid_capstyle='round', zorder=zord, label=label)
 
         elif mp.type == 'MultiPoint':
             for idx, p in enumerate(mp):
                 x, y = p.xy
-                self.ax.plot(x, y, color=color, alpha=alpha, markersize=2, marker="o", zorder=zord)
+                label = label if idx == 0 else None
+                self.ax.plot(x, y, color=color, alpha=alpha, markersize=2, marker="o", zorder=zord, label=label)
 
 
         elif mp.type == 'MultiLineString':
             for idx, p in enumerate(mp):
                 x, y = p.xy
-                self.ax.plot(x, y, color=color, alpha=alpha, linewidth=1, solid_capstyle='round', zorder=zord)
+                label = label if idx==0 else None
+                self.ax.plot(x, y, color=color, alpha=alpha, linewidth=1, solid_capstyle='round', zorder=zord, label=label)
 
         elif mp.type == 'MultiPolygon':
-            coll = PolyCollection(list([tuple(p.exterior.coords) for p in mp]), facecolors=color, edgecolors='#000000', linewidths=0.5)
+            coll = PolyCollection(list([tuple(p.exterior.coords) for p in mp]), facecolors=color, edgecolors='#000000', linewidths=0.5, label=label)
             coll.set_alpha(alpha)
             coll.set_zorder(0.2)
             self.ax.add_collection(coll)
@@ -51,4 +53,5 @@ class Plotter:
             plt.ylim(bounds[1], bounds[3])
             plt.xlim(bounds[0], bounds[2])
         plt.autoscale(enable=False)
+        plt.legend(loc='best')
         plt.show()

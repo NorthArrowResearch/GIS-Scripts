@@ -133,6 +133,7 @@ def createTangentialLine(dist, centerline, rivershape):
     intersections = rivershape.intersection(xsLong)
     inlist = []
     keepXs = []
+    throwaway = []
 
     # Now we have to choose what stays and what goes
     if not intersections.is_empty:
@@ -148,7 +149,9 @@ def createTangentialLine(dist, centerline, rivershape):
                 keep = False
             if keep:
                 keepXs.append(xs)
-    return keepXs
+            else:
+                throwaway.append(xs)
+    return keepXs, throwaway
 
 def getBufferedBounds(shape, buffer):
     """

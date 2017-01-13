@@ -179,28 +179,28 @@ def centerline(args):
         # (OPTIONAL). Makes the polygons we will use to visualize
         myVorL.createshapes()
 
-        # Left and right banks are light red and blue
-        plt.plotShape(bankshapes[0], '#DDCCCC', 1, 0)
-        plt.plotShape(bankshapes[1], '#AAAABB', 1, 0)
-
         # The Voronoi shapes are light grey (really slow for some reason)
-        plt.plotShape(myVorL.polys, '#444444', 0.1, 6)
+        plt.plotShape(myVorL.polys, '#AAAAAA', 0.3, 0, 'Voronoi Polygon')
+
+        # Left and right banks are light red and blue
+        plt.plotShape(bankshapes[0], '#FFAAAA', 0.5, 5)
+        plt.plotShape(bankshapes[1], '#AAAAFF', 0.5, 5)
 
         # The rivershape is slightly green
-        plt.plotShape(rivershape, '#AACCAA', 0.4, 8)
-        plt.plotShape(smoothRiver, '#AAAACC', 0.2, 8)
+        plt.plotShape(rivershape, '#AACCAA', 0.5, 8, 'River')
+        plt.plotShape(smoothRiver, '#AAAACC', 0.2, 10)
 
         # Thalweg is green and where it extends to the bounding rectangle is orange
-        plt.plotShape(newThalweg, '#FFA500', 1, 15)
-        plt.plotShape(lineThalweg, '#00FF00', 1, 20)
+        plt.plotShape(newThalweg, '#FFA500', 1, 15, 'Thalweg Extension')
+        plt.plotShape(lineThalweg, '#00FF00', 1, 20, 'Thalweg')
 
         # The centerline we choose is bright red
-        # plt.plotShape(centerline, '#660000', 0.6, 30)
-        plt.plotShape(centerlineSmooth, '#FF0000', 0.8, 30)
-        # The alternate lines are in yellow
-        plt.plotShape(MultiLineString(alternateLines), '#FFFF00', 0.8, 25)
+        plt.plotShape(centerlineSmooth, '#FF0000', 0.8, 30, 'Centerline')
 
-        plt.showPlot(rivershapeBounds.bounds)
+        # The alternate lines are in yellow
+        plt.plotShape(MultiLineString(alternateLines), '#FFFF00', 0.8, 25, 'Side-Channel Line')
+
+        plt.showPlot(getBufferedBounds(rivershapeBounds, 10).bounds)
 
 
 
