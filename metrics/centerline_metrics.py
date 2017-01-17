@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from logger import Logger
-from shapes import *
+from shapefile_loader import *
 
 """
 <centerline>

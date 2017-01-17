@@ -2,46 +2,8 @@ import argparse
 import sys
 
 from logger import Logger
-from shapes import *
-
-# <bankfull_main_channel_width_to_avg_depth>
-# <statistics>
-# <filtering>none</filtering>
-# <minimum>9.38902</minimum>
-# <maximum>94.01464</maximum>
-# <mean>33.61416</mean>
-# <count>424.0</count>
-# <standard_deviation>17.17037</standard_deviation>
-# <coefficient_of_variation>0.51081</coefficient_of_variation>
-# </statistics>
-# <statistics>
-# <filtering>auto</filtering>
-# <minimum>9.38902</minimum>
-# <maximum>94.01464</maximum>
-# <mean>32.92049</mean>
-# <count>418.0</count>
-# <standard_deviation>16.28005</standard_deviation>
-# <coefficient_of_variation>0.49453</coefficient_of_variation>
-# </statistics>
-# <statistics>
-# <filtering>crew</filtering>
-# <minimum>9.38902</minimum>
-# <maximum>94.01464</maximum>
-# <mean>31.17858</mean>
-# <count>392.0</count>
-# <standard_deviation>15.10823</standard_deviation>
-# <coefficient_of_variation>0.48457</coefficient_of_variation>
-# </statistics>
-# <statistics>
-# <filtering>best</filtering>
-# <minimum>9.38902</minimum>
-# <maximum>94.01464</maximum>
-# <mean>31.17858</mean>
-# <count>392.0</count>
-# <standard_deviation>15.10823</standard_deviation>
-# <coefficient_of_variation>0.48457</coefficient_of_variation>
-# </statistics>
-# </bankfull_main_channel_width_to_avg_depth>
+from shapefile_loader import *
+import numpy as np
 
 # There are various ways of summarizing the attributes of a dictionary:
 # best - this is a way of picking one of the other three methods.
@@ -62,51 +24,51 @@ def crosssection_metrics(args):
     dMetricTypes = {'WetWidth': 'crew', 'W2MxDepth': 'crew', 'W2AvDepth' :'crew'}
 
     # Save space by only loading the desired fields from the ShapeFile.
-    # We will need the 'Channel' and 'IsValid' fields if they exist
+    # We also need the 'Channel' and 'IsValid' fields if they exist.
     desiredFields = dMetricTypes.keys()
     desiredFields.append('Channel')
     desiredFields.append('IsValid')
 
-    # Open the cross section ShapeFile and build a list of all features and the desired fields
+    # Open the cross section ShapeFile & build a list of all features with a dictionary of the desired fields
     clShp = Shapefile(args.crosssections.name)
     allFeatures = clShp.attributesToList(desiredFields)
 
-    # Build a dictionary of the different channel types.
-    # The 'Main' and 'Side' are simple attribute based filters.
-    # For simple cross sections (no 'Channel' attribute) the 'Channel' type includes all features.
-    # For complex cross sections ('Channel' attribute present) the 'Channel' type includes only 'Main'
-    sAllChannel = 'Main'
-    if allFeatures[0]['Channel'] == None:
-        sAllChannel = None
-    dChannelTypes = {'Main': 'Main', 'Side': 'Side', 'Channel': sAllChannel}
+    # For simple ShapeFiles, make every feature part of the main channel, and
+    # set every feature as valid. This helps keep code below generic
+    for x in allFeatures:
+        if 'Channel' not in x:
+            x['Channel'] = 'Main'
+
+        if 'IsValid' not in x:
+            x['IsValid'] = 1
 
     dMetrics = {}
-    for sChannelType, sValueFilter in dChannelTypes.iteritems():
-        dMetrics[sChannelType] = {}
+    for channelName in ['Main', 'Side']:
+
+        dMetrics[channelName] = {}
 
         # Filter the list of features to just those in this channel
-        channelFeatures = []
-        if sValueFilter is None:
-            channelFeatures = allFeatures
-        else:
-            channelFeatures = [x for x in allFeatures if x['Channel'].lower() == sValueFilter.lower()]
+        channelFeatures = [x for x in allFeatures if x['Channel'].lower() == channelName.lower()]
 
-        # Get the list of features in this channel that the crew consider valid
+        # Filter the list of features to just those that the crew considered valid
         validFeatures = [x for x in channelFeatures if x['IsValid'] <> 0]
 
-        # The channel statistics for the wetted width are used to do 'auto' filtering
+        # Filter the features to just those with a length that is within 4 standard deviations of mean wetted width
         channelStatistics = getStatistics(channelFeatures, 'WetWidth')
-
-        # Get the list of features within x standard deviations of the mean
-        # that will be used for auto filtering
         wetWidthThreshold = channelStatistics['standard_deviation'] * 4
         autoFeatures = [x for x in channelFeatures if abs(x['WetWidth'] - channelStatistics['mean']) < wetWidthThreshold]
 
-        for aMetric in dMetricTypes:
-            populateChannelStatistics(dMetrics[sChannelType], 'none', aMetric, channelFeatures)
-            populateChannelStatistics(dMetrics[sChannelType], 'crew', aMetric, validFeatures)
-            populateChannelStatistics(dMetrics[sChannelType], 'auto', aMetric, autoFeatures)
-            dMetrics[sChannelType]['best'] = dMetrics[sChannelType]['crew']
+        # Loop over each desired metric and calculate the statistics for each filtering type
+        for metricName, bestFiltering in dMetricTypes.iteritems():
+            populateChannelStatistics(dMetrics[channelName], 'none', metricName, channelFeatures)
+            populateChannelStatistics(dMetrics[channelName], 'crew', metricName, validFeatures)
+            populateChannelStatistics(dMetrics[channelName], 'auto', metricName, autoFeatures)
+            dMetrics[channelName]['best'] = dMetrics[channelName][bestFiltering]
+
+    # The metrics for the whole channel are always the results for 'Main'.
+    # For complex ShapeFiles this will be just the results for the main channel.
+    # For simple, single threaded, ShapeFiles this will all cross sections.
+    dMetrics['Channel'] = dMetrics['Main']
 
     return dMetrics
 
@@ -124,29 +86,13 @@ def getStatistics(lFeatures, sAttribute):
 
     fSum = sum(lValues)
     dStatistics['count'] = len(lValues)
-    dStatistics['mean'] = fSum / float(dStatistics['count'])
+    dStatistics['mean'] = np.mean(lValues)
     dStatistics['minimum'] = min(lValues)
     dStatistics['maximum'] = max(lValues)
-
-    # Standard deviation is the average distance of each point from the mean
-    sumOfDiff = 0
-    for aVal in lValues:
-        sumOfDiff += abs(aVal - dStatistics['mean'])
-    dStatistics['standard_deviation'] = sumOfDiff / float(dStatistics['count'])
-
-    # Coefficient of variation is the StDev / Mean
+    dStatistics['standard_deviation'] = np.std(lValues)
     dStatistics['coefficient_of_variation'] = dStatistics['standard_deviation'] / dStatistics['mean']
 
     return dStatistics
-
-# def filterFeatures(sAttributeName, attributeValue, features):
-#
-#     dResult = [x for x in features if x[sAttributeName].lower() == attributeValue.lower()]
-#     return dResult
-
-# def crosssection_metrics_summary(dMetrics):
-
-
 
 if __name__ == "__main__":
 
