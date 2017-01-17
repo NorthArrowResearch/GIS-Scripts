@@ -47,6 +47,19 @@ class Shapefile:
             })
         return feats
 
+    def attributesToList(self, desiredFields):
+        if len(self.features) == 0:
+            return
+
+        feats = []
+        for feat in self.features:
+            fields = {}
+            for aField in desiredFields:
+                fields[aField] = feat.GetField(aField)
+
+            feats.append(fields)
+        return feats
+
     def getFieldDef(self):
         self.fields = {}
         lyrDefn = self.layer.GetLayerDefn()
