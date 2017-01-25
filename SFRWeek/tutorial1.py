@@ -1,6 +1,7 @@
 import numpy as np
 import gdal
 import matplotlib.pyplot as plt
+
 """
 
     Tutorial 1: We're going to open a raster, add 10 to every value and then write a new one
